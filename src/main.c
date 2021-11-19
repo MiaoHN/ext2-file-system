@@ -3,6 +3,6 @@
 #include "shell.h"
 
 int main(int argc, char const *argv[]) {
-  start_shell();
+  shell_loop();
   return 0;
 }
