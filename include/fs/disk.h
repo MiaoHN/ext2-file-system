@@ -18,11 +18,6 @@
 
 #include "type.h"
 
-typedef struct Sector {
-  int idx;
-  char* addr;
-} Sector;
-
 /**
  * @brief 模拟硬盘的操作
  *

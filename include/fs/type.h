@@ -4,16 +4,20 @@
  * @brief 定义一些属性
  * @version 0.1
  * @date 2021-11-20
- * 
+ *
  * @copyright Copyright (c) 2021
- * 
+ *
  */
 
 #ifndef __TYPE_H__
 #define __TYPE_H__
 
 #define SECTOR unsigned int
-#define DATA   char*
-#define DISK_PATH char*
+#define DATA unsigned char*
+#define DISK_PATH unsigned char*
+
+#define UINT32 unsigned int
+#define UINT16 unsigned short
+#define BYTE unsigned char
 
 #endif
