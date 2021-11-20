@@ -17,6 +17,8 @@
 #include "type.h"
 
 #define EXT2_N_BLOCKS 2323
+#define NUMBER_OF_GROUPS 1
+#define INODE_PER_GROUP 232
 
 #define NAME_LEN 255
 
@@ -74,6 +76,14 @@ typedef struct GroupDesc {
 } GroupDesc;
 
 /**
+ * @brief gdt
+ *
+ */
+typedef struct GroupDescTable {
+  GroupDesc group_desc[NUMBER_OF_GROUPS];
+} GroupDescTable;
+
+/**
  * @brief 索引结点
  *
  */
@@ -98,6 +108,18 @@ typedef struct Inode {
   UINT32 reserved;              // 保留
 } Inode;
 
+typedef struct BlockBitmap {
+  BYTE block_bitmap[BLOCK_SIZE];
+} BlockBitmap;
+
+typedef struct InodeBitmap {
+  BYTE inode_bitmap[BLOCK_SIZE];
+} InodeBitmap;
+
+typedef struct InodeTable {
+  Inode inode_table[INODE_PER_GROUP];
+} InodeTable;
+
 /**
  * @brief 目录块
  *
@@ -119,5 +141,13 @@ typedef struct FileSystem {
   GroupDesc group_desc;    // 组描述符
   Disk* disk;              // 硬盘
 } FileSystem;
+
+/**
+ * @brief 将硬盘 disk 使用 ext2 文件系统格式初始化
+ *
+ * @param disk
+ * @return int
+ */
+int fileSystemFormat(Disk* disk);
 
 #endif  // __EXT2_H__
