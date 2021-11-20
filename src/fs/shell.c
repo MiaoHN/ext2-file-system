@@ -1,10 +1,103 @@
+#include "shell.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
 #define LSH_TOK_BUFSIZE 64
 #define LSH_TOK_DELIM " \t\r\n\a"
 
-#include "shell.h"
+/**************************** 函数声明 ******************************/
+
+/**
+ * @brief 从控制台读入一行内容
+ *
+ * @return char* 读入的字符串
+ */
+char* shell_read_line();
+
+/**
+ * @brief 将读入的字符串分组
+ *
+ * @param line 读入的字符串
+ * @return char**
+ */
+char** shell_split_line(char* line);
+
+/**
+ * @brief 执行控制台输入的指令
+ *
+ * @param args
+ * @return int 运行状态，如果退出则返回 0
+ */
+int shell_execute(char** args);
+
+/**
+ * @brief 统计可用函数的数量
+ *
+ * @return int
+ */
+int shell_num_func();
+
+/**
+ * @brief
+ *
+ * @param args
+ * @return int 1
+ */
+int shell_cd(char** args);
+
+/**
+ * @brief
+ *
+ * @param args
+ * @return int 1
+ */
+int shell_help(char** args);
+
+/**
+ * @brief 简单查询函数的用法
+ *
+ * @param args 参数列表
+ * @return int 1
+ */
+int shell_man(char** args);
+
+/**
+ * @brief 退出程序
+ *
+ * @param args 参数列表
+ * @return int 0
+ */
+int shell_exit(char** args);
+
+/**************************** 函数变量声明 ********************************/
 
 char* shell_str[] = {"cd", "help", "exit", "man"};
 int (*shell_func[])(char**) = {&shell_cd, &shell_help, &shell_exit, &shell_man};
+
+/******************************* 函数实现 *********************************/
+
+int shell_loop() {
+  char* line;
+  char** args;
+  int status;
+
+  shell_help(NULL);
+
+  do {
+    printf("> ");
+    line = shell_read_line();
+    args = shell_split_line(line);
+    status = shell_execute(args);
+
+    free(line);
+    free(args);
+  } while (status);
+  return 0;
+}
 
 int shell_num_func() { return sizeof(shell_str) / sizeof(char*); }
 
@@ -61,25 +154,6 @@ int shell_execute(char** args) {
   // wrong command.
   printf("Wrong command input. Type exit to exit this program\n");
   return 1;
-}
-
-int shell_loop() {
-  char* line;
-  char** args;
-  int status;
-
-  shell_help(NULL);
-
-  do {
-    printf("> ");
-    line = shell_read_line();
-    args = shell_split_line(line);
-    status = shell_execute(args);
-
-    free(line);
-    free(args);
-  } while (status);
-  return 0;
 }
 
 int shell_help(char** args) {
