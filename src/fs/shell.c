@@ -16,7 +16,7 @@
  *
  * @return char* 读入的字符串
  */
-char* shell_read_line();
+char* shellReadLine();
 
 /**
  * @brief 将读入的字符串分组
@@ -24,7 +24,7 @@ char* shell_read_line();
  * @param line 读入的字符串
  * @return char**
  */
-char** shell_split_line(char* line);
+char** shellSplitLine(char* line);
 
 /**
  * @brief 执行控制台输入的指令
@@ -32,14 +32,14 @@ char** shell_split_line(char* line);
  * @param args
  * @return int 运行状态，如果退出则返回 0
  */
-int shell_execute(char** args);
+int shellExecute(char** args);
 
 /**
  * @brief 统计可用函数的数量
  *
  * @return int
  */
-int shell_num_func();
+int shellNumFunc();
 
 /**
  * @brief
@@ -80,7 +80,7 @@ int (*shell_func[])(char**) = {&shell_cd, &shell_help, &shell_exit, &shell_man};
 
 /******************************* 函数实现 *********************************/
 
-int shell_loop() {
+int shellLoop() {
   char* line;
   char** args;
   int status;
@@ -89,9 +89,9 @@ int shell_loop() {
 
   do {
     printf("> ");
-    line = shell_read_line();
-    args = shell_split_line(line);
-    status = shell_execute(args);
+    line = shellReadLine();
+    args = shellSplitLine(line);
+    status = shellExecute(args);
 
     free(line);
     free(args);
@@ -99,16 +99,16 @@ int shell_loop() {
   return 0;
 }
 
-int shell_num_func() { return sizeof(shell_str) / sizeof(char*); }
+int shellNumFunc() { return sizeof(shell_str) / sizeof(char*); }
 
-char* shell_read_line() {
+char* shellReadLine() {
   char* line = NULL;
   size_t bufsize = 0;  // 利用 getline 帮助我们分配缓冲区
   getline(&line, &bufsize, stdin);
   return line;
 }
 
-char** shell_split_line(char* line) {
+char** shellSplitLine(char* line) {
   int bufsize = LSH_TOK_BUFSIZE, position = 0;
   char** tokens = malloc(bufsize * sizeof(char*));
   char* token;
@@ -138,14 +138,14 @@ char** shell_split_line(char* line) {
   return tokens;
 }
 
-int shell_execute(char** args) {
+int shellExecute(char** args) {
   int i = 0;
   if (args[0] == NULL) {
     // an empty command was entered
     return 1;
   }
 
-  for (i = 0; i < shell_num_func(); i++) {
+  for (i = 0; i < shellNumFunc(); i++) {
     if (strcmp(args[0], shell_str[i]) == 0) {
       return (*shell_func[i])(args);
     }
@@ -162,7 +162,7 @@ int shell_help(char** args) {
   printf("Type program names and arguments, and hit enter\n");
   printf("The following are built in:\n");
 
-  for (i = 0; i < shell_num_func(); i++) {
+  for (i = 0; i < shellNumFunc(); i++) {
     printf("  %s\n", shell_str[i]);
   }
 

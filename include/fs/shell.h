@@ -17,6 +17,6 @@
  *
  * @return int
  */
-int shell_loop();
+int shellLoop();
 
 #endif  // __SHELL_H__
