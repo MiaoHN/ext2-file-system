@@ -9,7 +9,7 @@ int main(int argc, char const* argv[]) {
 
   Disk disk;
 
-  diskInit(&disk, 4096, 512, "./my_disk");
+  diskInit(&disk, 4096, 512, "./my_disk.dsk");
 
   char data1[BLOCK_SIZE] = "Hello World!";
   disk.write_sector(&disk, 24, data1);
