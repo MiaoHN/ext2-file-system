@@ -110,4 +110,14 @@ typedef struct DirEntry {
   char name[NAME_LEN];  // 文件名
 } DirEntry;
 
+/**
+ * @brief 文件系统
+ *
+ */
+typedef struct FileSystem {
+  SuperBlock super_block;  // 超级块
+  GroupDesc group_desc;    // 组描述符
+  Disk* disk;              // 硬盘
+} FileSystem;
+
 #endif  // __EXT2_H__
