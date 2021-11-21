@@ -12,6 +12,5 @@
 #ifndef __COMMON_H__
 #define __COMMON_H__
 
-#define BLOCK_SIZE 512
 
 #endif  // __COMMON_H__

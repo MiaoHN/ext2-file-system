@@ -3,6 +3,7 @@
 #include "disk.h"
 #include "common.h"
 #include "shell.h"
+#include "ext2.h"
 
 int main(int argc, char const* argv[]) {
   // shellLoop();
