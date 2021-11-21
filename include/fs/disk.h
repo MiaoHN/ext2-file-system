@@ -44,6 +44,14 @@ int diskInit(Disk* disk, int num_of_sectors, int byte_per_sector,
 int diskUnInit(Disk* disk);
 
 /**
+ * @brief 从指定路径读取一个磁盘
+ *
+ * @param path
+ * @return int
+ */
+int diskLoad(DISK_PATH path);
+
+/**
  * @brief 从扇区写内容
  *
  * @param _disk 被写入磁盘

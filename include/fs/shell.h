@@ -12,6 +12,12 @@
 #ifndef __SHELL_H__
 #define __SHELL_H__
 
+#include <sys/wait.h>
+#include <unistd.h>
+
+#include "disk.h"
+#include "ext2.h"
+
 /**
  * @brief shell 开始运行
  *

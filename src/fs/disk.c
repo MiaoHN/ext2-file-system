@@ -54,6 +54,11 @@ int diskUnInit(Disk* disk) {
   }
 }
 
+int diskLoad(DISK_PATH path) {
+  // TODO
+  return 0;
+}
+
 int diskWrite(Disk* disk, int sector, DATA data) {
   int position = sector * disk->bytes_per_sector;
   for (int i = 0; i < disk->bytes_per_sector; i++) {

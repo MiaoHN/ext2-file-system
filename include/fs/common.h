@@ -12,5 +12,6 @@
 #ifndef __COMMON_H__
 #define __COMMON_H__
 
+#define CLEAN_MEMORY(ptr, size) memset(ptr, 0, size)
 
 #endif  // __COMMON_H__

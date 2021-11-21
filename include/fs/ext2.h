@@ -18,17 +18,23 @@
 #include "disk.h"
 #include "type.h"
 
-/**************************** DEFINE **********************************/
+/******************************** DEFINE **************************************/
+
+// Size
 
 #define DISK_SIZE 2097152
 #define SECTOR_SIZE 512
 #define BLOCK_SIZE (SECTOR_SIZE * SECTORS_PER_BLOCK)
+#define INODE_SIZE 128
 
 #define NUMBER_OF_BLOCKS 232
 #define NUMBER_OF_GROUPS 1
 #define NUMBER_OF_INODES 3231
 
+// Per
+
 #define INODES_PER_GROUP (NUMBER_OF_INODES / NUMBER_OF_GROUPS)
+#define INODES_PER_BLOCK (BLOCK_SIZE / INODE_SIZE)
 #define BLOCKS_PER_GROUP 1
 #define SECTORS_PER_BLOCK 8
 
@@ -36,14 +42,26 @@
 
 #define NAME_LENGTH 255
 
+// Status
+
 #define EXT2_SUCCESS 0
 #define EXT2_ERROR -1
+
+// Base
+
+#define BOOT_BLOCK_BASE 0
+#define SUPER_BLOCK_BASE (BOOT_BLOCK_BASE + 0)
+#define GDT_BASE (SUPER_BLOCK_BASE + 1)
+#define DATA_BLOCK_BITMAP_BASE (GDT_BASE + 1)
+#define INODE_BITMAP_BASE (DATA_BLOCK_BITMAP_BASE + 1)
+#define INODE_TABLE_BASE (INODE_BITMAP_BASE + 1)
+#define DATA_BLOCK_BASE (INODE_TABLE_BASE + 1)
 
 /**
  * @brief 文件类型
  *
  */
-enum FILE_TYPE{
+enum FILE_TYPE {
   TYPE_UNKNOWN = 0,  // 未知文件类型
   TYPE_REG_FILE = 1,
   TYPE_DIR = 2,  // 目录
@@ -55,18 +73,18 @@ enum FILE_TYPE{
   TYPE_MAX
 };
 
-/**************************** STRUCTURE *******************************/
+/******************************** STRUCTURE ***********************************/
 
 /**
  * @brief 超级块
  *
  */
 typedef struct SuperBlock {
-  UINT32 inodes_count;           // 索引结点的总数
-  UINT32 blocks_count;           // 文件系统块的总数
-  UINT32 reserved_blocks_count;  // 为超级用户保留的块数
-  UINT32 free_blocks_count;      // 空闲块总数
-  UINT32 free_inodes_count;      // 空闲索引结点总数
+  UINT32 inodes_count;  // 索引结点的总数
+  UINT32 blocks_count;  // 文件系统块的总数
+  UINT32 reserved_blocks_count;  // 为超级用户保留的块数，一般占内存的 5%
+  UINT32 free_blocks_count;  // 空闲块总数
+  UINT32 free_inodes_count;  // 空闲索引结点总数
 
   UINT32 first_data_block;   // 文件系统中第一个数据块
   UINT32 log_block_size;     // 用于计算逻辑块的大小
@@ -92,14 +110,14 @@ typedef struct SuperBlock {
   UINT16 UID_for_reserved_block;  // 保留块的默认用户标识 UID
   UINT16 GID_for_reserved_block;  // 保留块的默认用户组标识 GID
 
-  UINT32 first_non_reserved_blocks;  // 第一个非保留的索引结点号
-  UINT16 inode_size;                 // 索引结点结构的大小
-  UINT16 block_group_number;         // 本 SuperBlock 所在的块组号
+  UINT32 first_non_reserved_inode;  // 第一个非保留的索引结点号
+  UINT16 inode_structure_size;      // 索引结点结构的大小
+  UINT16 block_group_number;        // 本 SuperBlock 所在的块组号
   UINT32 compatible_feature;
   UINT32 incompatible_feature;
   UINT32 read_only_feature;
   UINT32 UUID[4];
-  UINT32 volume_name[4];          // 文件系统名称
+  BYTE volume_name[16];           // 文件系统名称
   UINT32 last_mounted_path[16];   // 上次挂载位置
   UINT32 algorithm_usage_bitmap;  // For compression
 
@@ -115,8 +133,8 @@ typedef struct SuperBlock {
   UINT8 default_hash_version;  // 默认为 signed_directory_hash
   BYTE reserved_char_pad;
   BYTE reserved_word_pad[2];
-  UINT32 default_mount_option;        // 默认为 user_xattr acl
-  UINT32 first_datablock_each_group;  // ? 或者是 first metablock group
+  UINT32 default_mount_option;   // 默认为 user_xattr acl
+  UINT32 first_metablock_group;  // 第一个元块组集
 
   BYTE reserved[760];  // 保留
 } SuperBlock;
@@ -193,8 +211,6 @@ typedef struct DirEntry {
   char name[NAME_LENGTH];  // 文件名
 } DirEntry;
 
-/************************** INIT ************************************/
-
 /**
  * @brief 文件系统
  *
@@ -205,6 +221,8 @@ typedef struct FileSystem {
   Disk* disk;              // 硬盘
 } FileSystem;
 
+/********************************* INIT ***************************************/
+
 int fileSystemFormat(Disk* disk);
 
 int fillSuperBlock(SuperBlock* super_block);
@@ -214,5 +232,13 @@ int initSuperBlock(Disk* disk, SuperBlock* super_block, UINT32 group_number);
 int initGdt(Disk* disk, GroupDescTable* gdt, UINT32 group_number);
 int initBlockBitmap(Disk* disk, UINT32 group_number);
 int initInodeBitmap(Disk* disk, UINT32 group_number);
+
+/***************************** SETTER GETTER **********************************/
+
+
+/********************************* UTILS **************************************/
+
+int blockWrite(Disk* disk, SECTOR block, DATA data);
+int blockRead(Disk* disk, SECTOR block, DATA data);
 
 #endif  // __EXT2_H__
