@@ -24,7 +24,6 @@
  */
 typedef struct Disk {
   DISK_PATH path;  // 磁盘路径文件
-  DATA data;       // 指向内存位置的指针
 
   int num_of_sector;     // 磁盘中扇区的数量
   int bytes_per_sector;  // 每个扇区的比特数

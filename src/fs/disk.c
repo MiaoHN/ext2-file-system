@@ -1,27 +1,5 @@
 #include "disk.h"
 
-/**
- * @brief 更新磁盘文件
- *
- * @param disk 待更新的磁盘
- * @return int 正常返回 0
- */
-int updateDisk(Disk* disk) {
-  if (disk == NULL) return -1;
-
-  FILE* fb = fopen(disk->path, "wb");
-  if (fb == NULL) {
-    return -1;
-  }
-
-  int size = sizeof(char) * disk->num_of_sector * disk->bytes_per_sector;
-  // 写入 num_of_sectors * byte_per_sector * 8 位 0
-  fwrite(disk->data, size, 1, fb);
-
-  fclose(fb);
-  return 0;
-}
-
 int diskInit(Disk* disk, int num_of_sectors, int byte_per_sector,
              DISK_PATH path) {
   if (disk == NULL) return -1;
@@ -34,14 +12,16 @@ int diskInit(Disk* disk, int num_of_sectors, int byte_per_sector,
 
   // 创建指定大小的文件
 
-  int size = sizeof(char) * num_of_sectors * byte_per_sector;
-  // 写入 num_of_sectors * byte_per_sector * 8 位 0
-  disk->data = (DATA)malloc(size);
-  for (int i = 0; i < size; i++) {
-    disk->data[i] = '\0';
+  FILE* fb = fopen(disk->path, "wb");
+  if (fb == NULL) {
+    return -1;
   }
 
-  updateDisk(disk);
+  int size = sizeof(char) * disk->num_of_sector * disk->bytes_per_sector;
+  // 写入 num_of_sectors * byte_per_sector * 8 位 0
+  fwrite('\0', sizeof(char), size, fb);
+
+  fclose(fb);
 
   return 0;
 }
@@ -55,22 +35,31 @@ int diskUnInit(Disk* disk) {
 }
 
 int diskWrite(Disk* disk, int sector, DATA data) {
-  int position = sector * disk->bytes_per_sector;
-  for (int i = 0; i < disk->bytes_per_sector; i++) {
-    disk->data[position + i] = data[i];
+  if (disk == NULL) return -1;
+
+  FILE* fb = fopen(disk->path, "rb+");
+  if (fb == NULL) {
+    printf("Failed to open disk.\n");
+    return -1;
   }
+  fseek(fb, sector * disk->bytes_per_sector, SEEK_SET);
+  fwrite(data, disk->bytes_per_sector, 1, fb);
 
-  updateDisk(disk);
-
+  fclose(fb);
   return 0;
 }
 
 int diskRead(Disk* disk, int sector, DATA data) {
-  int position = sector * disk->bytes_per_sector;
+  if (disk == NULL) return -1;
 
-  for (int i = 0; i < disk->bytes_per_sector; i++) {
-    data[i] = disk->data[position + i];
+  FILE* fb = fopen(disk->path, "rb+");
+  if (fb == NULL) {
+    printf("Failed to open disk.\n");
+    return -1;
   }
+  fseek(fb, sector * disk->bytes_per_sector, SEEK_SET);
+  fread(data, disk->bytes_per_sector, 1, fb);
+  fclose(fb);
 
   return 0;
 }
