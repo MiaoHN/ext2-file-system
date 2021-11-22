@@ -27,7 +27,7 @@
  * @brief 超级块
  *
  */
-typedef struct SuperBlock {
+typedef struct Ext2SuperBlock {
   UINT32 inodes_count;       // 索引结点的总数
   UINT32 blocks_count;       // 文件系统块的总数
   UINT32 r_blocks_count;     // 为超级用户保留的块数
@@ -56,13 +56,13 @@ typedef struct SuperBlock {
   UINT16 inode_size;      // 索引结点结构的大小
   UINT16 block_group_nr;  // 本 SuperBlock 所在的块组号
   UINT32 reserved[230];   // 保留
-} SuperBlock;
+} Ext2SuperBlock;
 
 /**
  * @brief 组描述符
  *
  */
-typedef struct GroupDesc {
+typedef struct Ext2GroupDesc {
   UINT32 block_bitmap;       // 指向该组中块位图所在块的指针
   UINT32 inode_bitmap;       // 指向该组中块结点位图所在块的指针
   UINT32 inode_table;        // 指向该组中结点的首块的指针
@@ -71,13 +71,13 @@ typedef struct GroupDesc {
   UINT16 used_dirs_count;    // 本组分配给目录的结点数
   UINT16 pad;                // 填充
   UINT32 reserved;           // 保留
-} GroupDesc;
+} Ext2GroupDesc;
 
 /**
  * @brief 索引结点
  *
  */
-typedef struct Inode {
+typedef struct Ext2Inode {
   UINT16 mode;                  // 文件类型及访问权限
   UINT16 uid;                   // 文件拥有者的标识号 UID
   UINT32 size;                  // 文件大小(字节)
@@ -96,18 +96,18 @@ typedef struct Inode {
   BYTE frag;                    // 每块中的片数
   BYTE fsize;                   // 片的大小
   UINT32 reserved;              // 保留
-} Inode;
+} Ext2Inode;
 
 /**
  * @brief 目录块
  *
  */
-typedef struct DirEntry {
+typedef struct Ext2DirEntry {
   UINT32 inode;         // 索引结点号
   UINT16 rec_len;       // 目录项长度
   BYTE name_len;        // 文件名长度
   BYTE file_type;       // 文件类型(1: 普通文件 2: 目录 ...)
   char name[NAME_LEN];  // 文件名
-} DirEntry;
+} Ext2DirEntry;
 
 #endif  // __EXT2_H__

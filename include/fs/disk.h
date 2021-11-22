@@ -19,7 +19,7 @@
 #include "type.h"
 
 typedef struct Disk {
-  DISK_PATH path;  // 磁盘路径文件
+  char* path;  // 磁盘路径文件
 
   int number_of_sectors;     // 磁盘中扇区的数量
   int bytes_per_sector;  // 每个扇区的比特数

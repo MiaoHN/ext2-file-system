@@ -3,6 +3,7 @@
 #include "common.h"
 #include "disk.h"
 #include "shell.h"
+#include "debug.h"
 
 int main(int argc, char const* argv[]) {
   // shellLoop();
@@ -12,18 +13,13 @@ int main(int argc, char const* argv[]) {
   diskInit(&disk, NUMBERS_OF_SECTOR, BYTES_PER_SECTOR, "./my_disk.dsk");
 
   BYTE data1[SECTOR_SIZE] = "Hello World!";
-  disk.write_sector(&disk, 8097, data1);
+  disk.write_sector(&disk, 22, data1);
 
   BYTE ptr1[SECTOR_SIZE];
 
-  disk.read_sector(&disk, 8097, ptr1);
+  disk.read_sector(&disk, 22, ptr1);
 
-  printf("%s\n", ptr1);
-  printf("%s\n", ptr1);
-  printf("%s\n", ptr1);
-  printf("%s\n", ptr1);
-  printf("%s\n", ptr1);
-  printf("%s\n", ptr1);
+  dumpDisk(&disk, BYTES_PER_SECTOR * 22, 13);
 
   return 0;
 }

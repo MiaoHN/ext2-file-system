@@ -65,7 +65,7 @@ int diskRead(Disk* disk, int sector, BYTE* data) {
     return -1;
   }
 
-  FILE* fb = fopen(disk->path, "r");
+  FILE* fb = fopen(disk->path, "rb");
   if (fb == NULL) {
     printf("Failed to open disk.\n");
     return -1;
