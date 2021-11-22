@@ -11,66 +11,14 @@
 
 /**************************** 函数声明 ******************************/
 
-/**
- * @brief 从控制台读入一行内容
- *
- * @return char* 读入的字符串
- */
 char* shellReadLine();
-
-/**
- * @brief 将读入的字符串分组
- *
- * @param line 读入的字符串
- * @return char**
- */
 char** shellSplitLine(char* line);
-
-/**
- * @brief 执行控制台输入的指令
- *
- * @param args
- * @return int 运行状态，如果退出则返回 0
- */
 int shellExecute(char** args);
 
-/**
- * @brief 统计可用函数的数量
- *
- * @return int
- */
 int shellNumFunc();
-
-/**
- * @brief
- *
- * @param args
- * @return int 1
- */
 int shell_cd(char** args);
-
-/**
- * @brief
- *
- * @param args
- * @return int 1
- */
 int shell_help(char** args);
-
-/**
- * @brief 简单查询函数的用法
- *
- * @param args 参数列表
- * @return int 1
- */
 int shell_man(char** args);
-
-/**
- * @brief 退出程序
- *
- * @param args 参数列表
- * @return int 0
- */
 int shell_exit(char** args);
 
 /**************************** 函数变量声明 ********************************/

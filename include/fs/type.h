@@ -13,7 +13,6 @@
 #define __TYPE_H__
 
 #define SECTOR unsigned int
-#define DATA unsigned char*
 #define DISK_PATH unsigned char*
 
 #define UINT32 unsigned int
