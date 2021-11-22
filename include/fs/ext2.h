@@ -221,12 +221,37 @@ typedef struct FileSystem {
   Disk* disk;              // 硬盘
 } FileSystem;
 
+/**
+ * @brief 文件入口的具体位置
+ *
+ */
+typedef struct DirEntryLocation {
+  UINT32 group;
+  UINT32 block;
+  UINT32 offset;
+} DirEntryLocation;
+
+/**
+ * @brief 保存当前文件系统及工作区信息
+ *
+ */
+typedef struct Node {
+  FileSystem* file_system;
+  DirEntry entry;
+  DirEntryLocation location;
+} Node;
+
 /********************************* INIT ***************************************/
 
 int fileSystemFormat(Disk* disk);
+int fileSystemMount(FileSystem* file_system, Disk* disk);
+int fileSystemUMount(FileSystem* file_system, Disk* disk);
 
 int fillSuperBlock(SuperBlock* super_block);
 int fillGdt(GroupDescTable* gdt);
+
+// 从 disk 中读取文件系统的信息并初始化
+int initFileSystem(FileSystem* file_system);
 
 int initSuperBlock(Disk* disk, SuperBlock* super_block, UINT32 group_number);
 int initGdt(Disk* disk, GroupDescTable* gdt, UINT32 group_number);
@@ -235,6 +260,14 @@ int initInodeBitmap(Disk* disk, UINT32 group_number);
 
 /***************************** SETTER GETTER **********************************/
 
+int setBit(BYTE* bitmap, SECTOR index, int val);
+int getBit(BYTE* bitmap, SECTOR index);
+
+int readSuperBlock(FileSystem* file_system, Node* node);
+
+int getInode(FileSystem* file_system, UINT32 inode_idx, Inode* inode);
+int getSuperBlock(FileSystem* file_system, UINT32 group_number,
+                  SuperBlock* super_block);
 
 /********************************* UTILS **************************************/
 

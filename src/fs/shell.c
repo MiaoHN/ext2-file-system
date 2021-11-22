@@ -7,167 +7,60 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#define LSH_TOK_BUFSIZE 64
+#define BUFSIZE 64
+#define PATH_SIZE 128
 #define LSH_TOK_DELIM " \t\r\n\a"
 
-int in_disk = 0;
+#define MOUNT 0x01
+#define UMOUNT 0x02
 
-#define PATH_SIZE 128
+int in_disk = 0;
 
 char path_perfix[PATH_SIZE] = "";
 
 /********************************* 函数声明 ***********************************/
 
-int getCurrentDirectory() {
-  if (in_disk) {
-    char pth[] = "IN DISK";
-    memcpy(path_perfix, pth, sizeof(pth));
-  } else {
-    char* pth = getcwd(NULL, 0);
-    memcpy(path_perfix, pth, sizeof(char) * PATH_SIZE);
-  }
-}
-
-/**
- * @brief 从控制台读入一行内容
- *
- * @return char* 读入的字符串
- */
 char* shellReadLine();
-
-/**
- * @brief 将读入的字符串分组
- *
- * @param line 读入的字符串
- * @return char**
- */
 char** shellSplitLine(char* line);
-
-/**
- * @brief 若工作目录位于虚拟磁盘中使用该函数执行命令
- *
- * @param args
- * @return int
- */
 int diskExecute(char** args);
-
-/**
- * @brief 若工作目录不在虚拟磁盘中使用该函数执行命令
- *
- * @param args
- * @return int
- */
 int outExecute(char** args);
-
-/**
- * @brief 执行控制台输入的指令
- *
- * @param args
- * @return int 运行状态，如果退出则返回 0
- */
 int shellExecute(char** args);
-
-/**
- * @brief 使用 execvp 执行操作系统自带的程序
- *
- * @param args
- * @return int
- */
 int shellLaunch(char** args);
-
-/**
- * @brief 统计在虚拟磁盘中可用函数的数量
- *
- * @return int
- */
 int diskNumFunc();
-
-/**
- * @brief 统计可用函数的数量
- *
- * @return int
- */
 int outNumFunc();
 
-/**
- * @brief
- *
- * @param args
- * @return int 1
- */
 int shell_cd(char** args);
-
-/**
- * @brief
- *
- * @param args
- * @return int 1
- */
 int shell_help(char** args);
-
-/**
- * @brief 简单查询函数的用法
- *
- * @param args 参数列表
- * @return int 1
- */
 int shell_man(char** args);
-
 int manBuiltin(char** args);
-
-/**
- * @brief 退出程序
- *
- * @param args 参数列表
- * @return int 0
- */
 int shell_exit(char** args);
-
-/**
- * @brief 创建一个硬盘，默认按照参数路径新建一个磁盘文件，
- *
- * TODO: 硬盘已经存在则直接读取之
- *
- * @param args
- * @return int
- */
 int shell_mkdisk(char** args);
-
-/**
- * @brief 格式化模拟硬盘
- *
- * TODO: 添加硬盘路径参数
- *
- * @param args
- * @return int
- */
 int shell_format(char** args);
-
-/**
- * @brief 使用操作系统提供的 hexdump
- *
- * @param args
- * @return int
- */
 int shell_dump(char** args);
-
-/**
- * @brief 挂载并进入虚拟硬盘
- *
- * @param args
- * @return int
- */
 int shell_mount(char** args);
-
-/**
- * @brief 取消挂载虚拟硬盘
- *
- * @param args
- * @return int
- */
 int shell_umount(char** args);
 
+int getCurrentDirectory();
+int getArgc(char** args);
+
 /**************************** 函数变量声明 ********************************/
+
+typedef struct Command {
+  char* name;
+  int (*handler)(char** args);
+  char conditions;  // 是否在虚拟硬盘中
+} Command;
+
+static Command g_commands[] = {
+    {"cd", shell_cd, 0},
+    {"help", shell_help, 0},
+    {"exit", shell_exit, 0},
+    {"man", shell_man, 0},
+    {"format", shell_format, UMOUNT},
+    {"mkdisk", shell_mkdisk, UMOUNT},
+    {"mount", shell_mount, UMOUNT},
+    {"umount", shell_umount, MOUNT},
+};
 
 // 在 ext2 磁盘中的可用命令
 char* shell_disk_str[] = {"cd", "help", "exit", "man", "dump", "umount"};
@@ -181,8 +74,17 @@ int (*shell_out_func[])(char**) = {&shell_cd,   &shell_help,   &shell_exit,
                                    &shell_man,  &shell_mkdisk, &shell_format,
                                    &shell_mount};
 
-static FileSystem g_file_system;
-static Disk disk;
+// static FileSystem g_file_system;
+// static Disk disk;
+
+static ShellFileSystem g_filesystem;
+static ShellFileSystemOperations g_fs_operations;
+static ShellEntry g_root_dir;
+static ShellEntry g_current_dir;
+static Disk* disk;
+static Disk* g_disk;
+
+static ShellEntry path[256];
 
 /******************************* 函数实现 *********************************/
 
@@ -217,7 +119,7 @@ char* shellReadLine() {
 }
 
 char** shellSplitLine(char* line) {
-  int bufsize = LSH_TOK_BUFSIZE, position = 0;
+  int bufsize = BUFSIZE, position = 0;
   char** tokens = malloc(bufsize * sizeof(char*));
   char* token;
 
@@ -232,7 +134,7 @@ char** shellSplitLine(char* line) {
     position++;
 
     if (position >= bufsize) {
-      bufsize += LSH_TOK_BUFSIZE;
+      bufsize += BUFSIZE;
       tokens = realloc(tokens, bufsize * sizeof(char*));
       if (!tokens) {
         fprintf(stderr, "shell: allocation error\n");
@@ -371,7 +273,22 @@ int shell_mkdisk(char** args) {
 }
 
 int shell_format(char** args) {
-  fileSystemFormat(&disk);
+  int argc = getArgc(args);
+
+  if (argc != 2) {
+    printf("usage: format <path-to-disk>\n");
+    return 1;
+  }
+  diskLoad(g_disk, args[1]);
+
+  int result = g_filesystem.format(&g_disk);
+
+  if (result < 0) {
+    print("%s formatting is failed\n", g_filesystem.name);
+    return 1;
+  }
+
+  printf("successfully format the disk");
   return 1;
 }
 
@@ -384,3 +301,22 @@ int shell_dump(char** args) {
 int shell_mount(char** args) { in_disk = 1; }
 
 int shell_umount(char** args) { in_disk = 0; }
+
+/******************************* UTILS *************************************/
+
+int getCurrentDirectory() {
+  if (in_disk) {
+    char pth[] = g_current_dir.name;
+    memcpy(path_perfix, pth, sizeof(pth));
+  } else {
+    char* pth = getcwd(NULL, 0);
+    memcpy(path_perfix, pth, sizeof(char) * PATH_SIZE);
+  }
+}
+
+int getArgc(char** args) {
+  int result = 0;
+  while (args[result++] != NULL)
+    ;
+  return result;
+}

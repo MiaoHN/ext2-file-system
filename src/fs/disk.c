@@ -54,7 +54,8 @@ int diskUnInit(Disk* disk) {
   }
 }
 
-int diskLoad(DISK_PATH path) {
+int diskLoad(Disk*disk, DISK_PATH path) {
+  disk->path = path;
   // TODO
   return 0;
 }

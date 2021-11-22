@@ -49,7 +49,7 @@ int diskUnInit(Disk* disk);
  * @param path
  * @return int
  */
-int diskLoad(DISK_PATH path);
+int diskLoad(Disk* disk, DISK_PATH path);
 
 /**
  * @brief 从扇区写内容
