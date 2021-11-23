@@ -21,8 +21,8 @@
 typedef struct Disk {
   char* path;  // 磁盘路径文件
 
-  int number_of_sectors;     // 磁盘中扇区的数量
-  int bytes_per_sector;  // 每个扇区的比特数
+  int number_of_sectors;  // 磁盘中扇区的数量
+  int bytes_per_sector;   // 每个扇区的比特数
 
   int (*write_sector)(struct Disk*, int, BYTE*);  // 读取操作
   int (*read_sector)(struct Disk*, int, BYTE*);   // 写操作

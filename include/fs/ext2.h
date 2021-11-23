@@ -110,4 +110,10 @@ typedef struct Ext2DirEntry {
   char name[NAME_LEN];  // 文件名
 } Ext2DirEntry;
 
+// 向 disk 中的一个 block 写入数据
+int writeBlock(Disk* disk, int idx, BYTE* block);
+
+// 从 disk 中的一个 block 读出数据
+int readBlock(Disk* disk, int idx, BYTE* block);
+
 #endif  // __EXT2_H__

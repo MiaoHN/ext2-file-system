@@ -1,17 +1,5 @@
 #include "debug.h"
 
-int printDump(BYTE* data, int offset, int bytes) {
-  for (int i = 0; i < bytes - 2; i = i + 2) {
-    BYTE data1 = data[i];
-    BYTE data2 = data[i + 1];
-    BYTE high1 = (data1 & 0xf0) >> 4;
-    BYTE low1 = (data1 & 0x0f) >> 0;
-    BYTE high2 = (data2 & 0xf0) >> 4;
-    BYTE low2 = (data2 & 0x0f) >> 0;
-    printf("%x%x%x%x ", high2, low2, high1, low1);
-  }
-}
-
 int dumpDisk(Disk* disk, int offset, int bytes) {
   FILE* fb = fopen(disk->path, "rb");
   if (fb == NULL) return -1;
@@ -20,12 +8,37 @@ int dumpDisk(Disk* disk, int offset, int bytes) {
     printf("out of range\n");
   }
 
-  BYTE* data;
-  memset(data, 0, bytes);
-  fseek(fb, offset, SEEK_SET);
-  fread(data, bytes * sizeof(BYTE), 1, fb);
+  int base = offset & 0xffffff00;
+  int lines = bytes / 16 + 1;
 
-  printDump(data, offset, bytes);
+  BYTE* data = calloc(1, sizeof(BYTE));
+  memset(data, 0, lines * 2 * sizeof(BYTE));
+  fseek(fb, base, SEEK_SET);
+  fread(data, lines * 16 * sizeof(BYTE), 1, fb);
+
+  for (int i = 0; i < lines; i++) {
+    printf("%.8x  ", base + 16 * i);
+    for (int ii = 0; ii < 16; ii++) {
+      BYTE high = (data[i * 16 + ii] & 0xf0) >> 4;
+      BYTE low = (data[i * 16 + ii] & 0x0f) >> 0;
+      if (ii == 8) {
+        printf(" %x%x ", high, low);
+      } else {
+        printf("%x%x ", high, low);
+      }
+    }
+    printf(" |");
+
+    for (int ii = 0; ii < 16; ii++) {
+      unsigned char ch = data[i * 16 + ii];
+      if (ch == '\0') ch = '.';
+      printf("%c", ch);
+    }
+
+    printf("|\n");
+  }
+
+  free(data);
 
   return 0;
 }

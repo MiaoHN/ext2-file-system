@@ -22,6 +22,4 @@
 
 int dumpDisk(Disk* disk, int offset, int bytes);
 
-int printDump(BYTE* data, int offset, int bytes);
-
 #endif  // __DEBUT_H__
