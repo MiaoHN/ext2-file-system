@@ -14,8 +14,9 @@
 char* shellReadLine();
 char** shellSplitLine(char* line);
 int shellExecute(char** args);
+int shellLaunch(char** args);
 
-int shellNumFunc();
+int shellNumFunc(Condition condition);
 int shell_cd(char** args);
 int shell_help(char** args);
 int shell_man(char** args);
@@ -23,8 +24,15 @@ int shell_exit(char** args);
 
 /**************************** 函数变量声明 ********************************/
 
-char* shell_str[] = {"cd", "help", "exit", "man"};
-int (*shell_func[])(char**) = {&shell_cd, &shell_help, &shell_exit, &shell_man};
+static Command commands[] = {
+    {"cd", &shell_cd, ALL},
+    {"help", &shell_help, ALL},
+    {"exit", &shell_exit, ALL},
+    {"man", &shell_man, ALL},
+};
+static int commands_size = 4;
+
+int is_mounted = 0;
 
 /******************************* 函数实现 *********************************/
 
@@ -47,7 +55,13 @@ int shellLoop() {
   return 0;
 }
 
-int shellNumFunc() { return sizeof(shell_str) / sizeof(char*); }
+int shellNumFunc(Condition cond) {
+  int count = 0;
+  for (int i = 0; i < commands_size; i++) {
+    if (commands[i].condition == cond) count++;
+  }
+  return count;
+}
 
 char* shellReadLine() {
   char* line = NULL;
@@ -89,18 +103,45 @@ char** shellSplitLine(char* line) {
 int shellExecute(char** args) {
   int i = 0;
   if (args[0] == NULL) {
-    // an empty command was entered
+    // 输入了空的命令
     return 1;
   }
 
-  for (i = 0; i < shellNumFunc(); i++) {
-    if (strcmp(args[0], shell_str[i]) == 0) {
-      return (*shell_func[i])(args);
+  for (i = 0; i < shellNumFunc(ALL); i++) {
+    // if (strcmp(args[0], shell_str[i]) == 0) {
+    if (strcmp(args[0], commands[i].name) == 0) {
+      return (*commands[i].func)(args);
     }
   }
 
-  // wrong command.
+  // 如果虚拟硬盘未挂载使用操作系统自带的命令
+  if (!is_mounted) {
+    return shellLaunch(args);
+  }
+
+  // 输入了错误的指令
   printf("Wrong command input. Type exit to exit this program\n");
+  return 1;
+}
+
+int shellLaunch(char** args) {
+  pid_t pid;
+  int status;
+
+  pid = fork();
+  if (pid == 0) {
+    if (execvp(args[0], args) == -1) {
+      perror("shell");
+    }
+    exit(EXIT_FAILURE);
+  } else if (pid < 0) {
+    perror("Shell");
+  } else {
+    do {
+      waitpid(pid, &status, WUNTRACED);
+    } while (!WIFEXITED(status) && !WIFSIGNALED(status));
+  }
+
   return 1;
 }
 
@@ -110,15 +151,27 @@ int shell_help(char** args) {
   printf("Type program names and arguments, and hit enter\n");
   printf("The following are built in:\n");
 
-  for (i = 0; i < shellNumFunc(); i++) {
-    printf("  %s\n", shell_str[i]);
+  for (i = 0; i < shellNumFunc(ALL); i++) {
+    printf("  %s\n", commands[i].name);
   }
 
   printf("Use the man command for information the programs.\n");
   return 1;
 }
 
-int shell_cd(char** args) { return 1; }
+int shell_cd(char** args) {
+  if (!is_mounted) {
+    if (args[1] == NULL) {
+      fprintf(stderr, "usage: cd <directory>\n");
+    } else {
+      if (chdir(args[1]) != 0) {
+        perror("Wrong!!!");
+      }
+    }
+  } else {
+  }
+  return 1;
+}
 
 int shell_man(char** args) { return 1; }
 

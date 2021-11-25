@@ -12,6 +12,18 @@
 #ifndef __SHELL_H__
 #define __SHELL_H__
 
+typedef enum Condition {
+  MOUNTED = 0,
+  UMOUNTED = 1,
+  ALL = 2,
+} Condition;
+
+typedef struct Command {
+  char* name;           // 函数名称
+  int (*func)(char**);  // 函数指针
+  Condition condition;  // 函数的使用情况：是否新文件系统已经挂载
+} Command;
+
 /**
  * @brief shell 开始运行
  *

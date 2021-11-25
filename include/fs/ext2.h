@@ -12,6 +12,8 @@
 #ifndef __EXT2_H__
 #define __EXT2_H__
 
+#include <string.h>
+
 #include "common.h"
 #include "disk.h"
 #include "type.h"
@@ -20,13 +22,29 @@
 
 #define NAME_LEN 255
 
+#define INODE_SIZE 128
+
+#define NUMBER_OF_GROUPS 1
+#define NUMBER_OF_INODES (NUMBER_OF_BLOCKS / 2)
+
+#define INODES_PER_GROUP (NUMBER_OF_INODES / NUMBER_OF_GROUPS)
+#define BLOCKS_PER_GROUP (NUMBER_OF_BLOCKS / NUMBER_OF_GROUPS)
+
+#define BOOT_BASE 0
+#define SUPER_BLOCK_BASE (BOOT_BASE + 0)
+#define GDT_BASE (SUPER_BLOCK_BASE + 1)
+#define INODE_BITMAP_BASE (GDT_BASE + 1)
+#define BLOCK_BITMAP_BASE (INODE_BITMAP_BASE + 1)
+#define INODE_TABLE_BASE (BLOCK_BITMAP_BASE + 1)
+#define DATA_BLOCK_BASE (INODE_TABLE_BASE + 1)
+
+#define EXT2_SUCCESS 0
+#define EXT2_ERROR 1
+
 #define EXT2_VALID_FS 0x0001
 #define EXT2_ERROR_FS 0x0002
 
-/**
- * @brief 超级块
- *
- */
+// 超级块
 typedef struct Ext2SuperBlock {
   UINT32 inodes_count;       // 索引结点的总数
   UINT32 blocks_count;       // 文件系统块的总数
@@ -50,18 +68,15 @@ typedef struct Ext2SuperBlock {
   UINT32 last_check;       // 最后一次检测文件系统状态的时间
   UINT32 check_interval;  // 两次对文件系统状态进行检测的最大可能时间间隔
   UINT32 rev_level;  // 版本号，以此识别是否支持是否支持某些功能
-  UINT16 def_fesuid;      // 保留块的默认用户标识 UID
-  UINT16 def_fesgid;      // 保留块的默认用户组标识 GID
-  UINT32 first_ino;       // 第一个非保留的索引结点号
-  UINT16 inode_size;      // 索引结点结构的大小
-  UINT16 block_group_nr;  // 本 SuperBlock 所在的块组号
-  UINT32 reserved[230];   // 保留
+  UINT16 def_fesuid;     // 保留块的默认用户标识 UID
+  UINT16 def_fesgid;     // 保留块的默认用户组标识 GID
+  UINT32 first_ino;      // 第一个非保留的索引结点号
+  UINT16 inode_size;     // 索引结点结构的大小
+  UINT16 block_group;    // 本 SuperBlock 所在的块组号
+  UINT32 reserved[230];  // 保留
 } Ext2SuperBlock;
 
-/**
- * @brief 组描述符
- *
- */
+// 组描述符
 typedef struct Ext2GroupDesc {
   UINT32 block_bitmap;       // 指向该组中块位图所在块的指针
   UINT32 inode_bitmap;       // 指向该组中块结点位图所在块的指针
@@ -73,10 +88,7 @@ typedef struct Ext2GroupDesc {
   UINT32 reserved;           // 保留
 } Ext2GroupDesc;
 
-/**
- * @brief 索引结点
- *
- */
+// 索引结点
 typedef struct Ext2Inode {
   UINT16 mode;                  // 文件类型及访问权限
   UINT16 uid;                   // 文件拥有者的标识号 UID
@@ -98,10 +110,7 @@ typedef struct Ext2Inode {
   UINT32 reserved;              // 保留
 } Ext2Inode;
 
-/**
- * @brief 目录块
- *
- */
+// 目录块
 typedef struct Ext2DirEntry {
   UINT32 inode;         // 索引结点号
   UINT16 rec_len;       // 目录项长度
@@ -109,6 +118,36 @@ typedef struct Ext2DirEntry {
   BYTE file_type;       // 文件类型(1: 普通文件 2: 目录 ...)
   char name[NAME_LEN];  // 文件名
 } Ext2DirEntry;
+
+typedef struct Ext2GroupDescTable {
+  Ext2GroupDesc table[NUMBER_OF_GROUPS];
+} Ext2GroupDescTable;
+
+typedef struct Ext2InodeTable {
+  Ext2Inode inode[INODES_PER_GROUP];
+} Ext2InodeTable;
+
+typedef struct Bitmap {
+  BYTE bitmap[BLOCK_SIZE];
+} Bitmap;
+
+typedef Bitmap Ext2InodeBitmap;
+typedef Bitmap Ext2BlockBitmap;
+
+/********************************* INIT ***************************************/
+
+int format(Disk* disk);
+int initSuperBlock(Ext2SuperBlock* super_block);
+int initGdt(Ext2SuperBlock* super_block, Ext2GroupDescTable* gdt);
+int initInodeBitmap(Disk* disk, int group);
+int initBlockBitmap(Disk* disk, int group);
+int initRootDir(Disk* disk, Ext2SuperBlock* super_block);
+
+int writeSuperBlock(Disk* disk, Ext2SuperBlock* super_block, int group);
+
+/********************************* UTILS **************************************/
+
+int setBit(BYTE* block, int index, int value);
 
 // 向 disk 中的一个 block 写入数据
 int writeBlock(Disk* disk, int idx, BYTE* block);

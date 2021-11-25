@@ -21,7 +21,13 @@ int dumpDisk(Disk* disk, int offset, int bytes) {
     for (int ii = 0; ii < 16; ii++) {
       BYTE high = (data[i * 16 + ii] & 0xf0) >> 4;
       BYTE low = (data[i * 16 + ii] & 0x0f) >> 0;
-      if (ii == 8) {
+      if (i == 0 && ii == (offset % 8)) {
+        if (ii == 8) {
+          printf(" \033[31m%x%x\033[0m ", high, low);
+        } else {
+          printf("\033[31m%x%x\033[0m ", high, low);
+        }
+      } else if (ii == 8) {
         printf(" %x%x ", high, low);
       } else {
         printf("%x%x ", high, low);
