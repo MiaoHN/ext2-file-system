@@ -17,6 +17,7 @@
 
 #define UINT32 unsigned int
 #define UINT16 unsigned short
+#define UINT8 BYTE
 #define BYTE unsigned char
 
 #endif

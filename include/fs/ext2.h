@@ -18,9 +18,29 @@
 #include "disk.h"
 #include "type.h"
 
-#define EXT2_N_BLOCKS 2323
+/******************************** DEFINE **************************************/
 
-#define NAME_LEN 255
+// Size
+
+#define DISK_SIZE 2097152
+#define SECTOR_SIZE 512
+#define BLOCK_SIZE (SECTOR_SIZE * SECTORS_PER_BLOCK)
+#define INODE_SIZE 128
+
+#define NUMBER_OF_BLOCKS 232
+#define NUMBER_OF_GROUPS 1
+#define NUMBER_OF_INODES 3231
+
+// Per
+
+#define INODES_PER_GROUP (NUMBER_OF_INODES / NUMBER_OF_GROUPS)
+#define INODES_PER_BLOCK (BLOCK_SIZE / INODE_SIZE)
+#define BLOCKS_PER_GROUP 1
+#define SECTORS_PER_BLOCK 8
+
+#define INODE_BLOCKS 15
+
+#define NAME_LENGTH 255
 
 #define INODE_SIZE 128
 
@@ -49,25 +69,32 @@ typedef struct Ext2SuperBlock {
   UINT32 inodes_count;       // 索引结点的总数
   UINT32 blocks_count;       // 文件系统块的总数
   UINT32 r_blocks_count;     // 为超级用户保留的块数
+
   UINT32 free_blocks_count;  // 空闲块总数
   UINT32 free_inodes_count;  // 空闲索引结点总数
+
   UINT32 first_data_block;   // 文件系统中第一个数据块
   UINT32 log_block_size;     // 用于计算逻辑块的大小
-  UINT32 log_frag_size;      // 用于计算片的大小
-  UINT32 blocks_per_group;   // 每个组的块个数
-  UINT32 frags_per_group;    // 每个组的片个数
-  UINT32 inodes_per_group;   // 每个组的索引结点数
-  UINT32 mtime;              // 文件系统的安装时间
-  UINT32 wtime;              // 最后一次对超级块进行写的时间
-  UINT16 mnt_count;          // 安装计数
-  UINT16 max_mnt_count;      // 最大可安装计数
-  UINT16 magic;   // 用于确定文件系统版本的标志 (ext2 -- 0xEF53)
-  UINT16 state;   // 文件系统状态
-  UINT16 errors;  // 当检测到错误时如何处理
+  UINT32 log_fragment_size;  // 用于计算片的大小
+
+  UINT32 blocks_per_group;     // 每个组的块个数
+  UINT32 fragments_per_group;  // 每个组的片个数
+  UINT32 inodes_per_group;     // 每个组的索引结点数
+
+  UINT32 mtime;            // 文件系统的安装时间
+  UINT32 wtime;            // 最后一次对超级块进行写的时间
+  UINT16 mount_count;      // 安装计数
+  UINT16 max_mount_count;  // 最大可安装计数
+  UINT16 magic_signature;  // 用于确定文件系统版本的标志 (ext2 -- 0xEF53)
+  UINT16 state;            // 文件系统状态
+  UINT16 errors;           // 当检测到错误时如何处理
   UINT16 minor_rev_level;  // 次版本号
-  UINT32 last_check;       // 最后一次检测文件系统状态的时间
+
+  UINT32 last_check;  // 最后一次检测文件系统状态的时间
   UINT32 check_interval;  // 两次对文件系统状态进行检测的最大可能时间间隔
+  UINT32 creator_os;  // 适用的操作系统
   UINT32 rev_level;  // 版本号，以此识别是否支持是否支持某些功能
+
   UINT16 def_fesuid;     // 保留块的默认用户标识 UID
   UINT16 def_fesgid;     // 保留块的默认用户组标识 GID
   UINT32 first_ino;      // 第一个非保留的索引结点号
@@ -75,6 +102,7 @@ typedef struct Ext2SuperBlock {
   UINT16 block_group;    // 本 SuperBlock 所在的块组号
   UINT32 reserved[230];  // 保留
 } Ext2SuperBlock;
+
 
 // 组描述符
 typedef struct Ext2GroupDesc {
@@ -154,5 +182,69 @@ int writeBlock(Disk* disk, int idx, BYTE* block);
 
 // 从 disk 中的一个 block 读出数据
 int readBlock(Disk* disk, int idx, BYTE* block);
+
+
+/**
+ * @brief 文件系统
+ *
+ */
+typedef struct FileSystem {
+  SuperBlock super_block;  // 超级块
+  GroupDesc group_desc;    // 组描述符
+  Disk* disk;              // 硬盘
+} FileSystem;
+
+/**
+ * @brief 文件入口的具体位置
+ *
+ */
+typedef struct DirEntryLocation {
+  UINT32 group;
+  UINT32 block;
+  UINT32 offset;
+} DirEntryLocation;
+
+/**
+ * @brief 保存当前文件系统及工作区信息
+ *
+ */
+typedef struct Node {
+  FileSystem* file_system;
+  DirEntry entry;
+  DirEntryLocation location;
+} Node;
+
+/********************************* INIT ***************************************/
+
+int fileSystemFormat(Disk* disk);
+int fileSystemMount(FileSystem* file_system, Disk* disk);
+int fileSystemUMount(FileSystem* file_system, Disk* disk);
+
+int fillSuperBlock(SuperBlock* super_block);
+int fillGdt(GroupDescTable* gdt);
+
+// 从 disk 中读取文件系统的信息并初始化
+int initFileSystem(FileSystem* file_system);
+
+int initSuperBlock(Disk* disk, SuperBlock* super_block, UINT32 group_number);
+int initGdt(Disk* disk, GroupDescTable* gdt, UINT32 group_number);
+int initBlockBitmap(Disk* disk, UINT32 group_number);
+int initInodeBitmap(Disk* disk, UINT32 group_number);
+
+/***************************** SETTER GETTER **********************************/
+
+int setBit(BYTE* bitmap, SECTOR index, int val);
+int getBit(BYTE* bitmap, SECTOR index);
+
+int readSuperBlock(FileSystem* file_system, Node* node);
+
+int getInode(FileSystem* file_system, UINT32 inode_idx, Inode* inode);
+int getSuperBlock(FileSystem* file_system, UINT32 group_number,
+                  SuperBlock* super_block);
+
+/********************************* UTILS **************************************/
+
+int blockWrite(Disk* disk, SECTOR block, DATA data);
+int blockRead(Disk* disk, SECTOR block, DATA data);
 
 #endif  // __EXT2_H__
