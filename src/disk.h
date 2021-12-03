@@ -8,25 +8,11 @@
 #include "common.h"
 
 /**
- * @brief 保存磁盘信息，存储在磁盘的第一个扇区中
- *
- */
-typedef struct DiskInfo {
-  unsigned int number_of_sectors;  // 扇区数量
-  unsigned int sector_size;        // 扇区大小
-  unsigned int sectors_pre_block;  // 每个块的扇区数量
-  unsigned int block_size;         // 块大小
-  unsigned int number_of_blocks;   // 块数量
-  unsigned int disk_size;          // 磁盘大小
-} DiskInfo;
-
-/**
  * @brief 记录磁盘文件信息
  *
  */
 typedef struct Disk {
   char path[128];      // 磁盘路径
-  DiskInfo disk_info;  // 磁盘信息
 
   // 读磁盘
   int (*write_disk)(struct Disk* disk, int block_idx, void* data);
@@ -64,8 +50,16 @@ int readDisk(Disk* disk, int block_idx, void* data);
  * @param sectors_per_block 每个块有多少扇区
  * @return int
  */
-int makeDisk(Disk* disk, const char* path, int number_of_sectors,
-             int sector_size, int sectors_per_block);
+
+/**
+ * @brief 从路径初始化一个磁盘文件
+ *
+ * @param disk 磁盘指针
+ * @param path 磁盘路径
+ * @param number_of_blocks 块数量
+ * @return int
+ */
+int makeDisk(Disk* disk, const char* path, int number_of_blocks);
 
 /**
  * @brief 从路径 path 加载一个 disk
