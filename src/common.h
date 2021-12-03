@@ -33,6 +33,7 @@ typedef unsigned char BYTE;
 #define SECTOR_SIZE 512
 #define BLOCK_SIZE (SECTOR_SIZE * SECTORS_PRE_BLOCK)
 #define INODE_SIZE 128
+#define DIR_SIZE 32
 
 #define NUMBER_OF_BLOCKS 4096
 #define NUMBER_OF_INODES (NUMBER_OF_BLOCKS / 4)

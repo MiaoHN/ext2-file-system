@@ -4,6 +4,11 @@
 #include "common.h"
 #include "disk.h"
 
+enum Ext2FileType {
+  EXT2_FILE = 1,
+  EXT2_DIR = 2,
+};
+
 /**
  * @brief 超级块占用一个 block
  *
@@ -122,8 +127,9 @@ int initRootDir(Disk* disk, Ext2SuperBlock* super_block);
 
 int writeSuperBlock(Disk* disk, Ext2SuperBlock* super_block);
 
-int writeGdt(Disk* disk, Ext2SuperBlock* super_block, Ext2GroupDescTable*
-gdt);
+int writeGdt(Disk* disk, Ext2SuperBlock* super_block, Ext2GroupDescTable* gdt);
+
+int getRootInode(Ext2FileSystem* file_system, Ext2Inode* inode);
 
 /**
  * @brief 将 disk 初始化文件系统
@@ -133,11 +139,9 @@ gdt);
  */
 int format(Disk* disk);
 
-// int ext2Ls(Ext2FileSystem*file_system, Ext2Inode* current);
+int ext2Ls(Ext2FileSystem* file_system, Ext2Inode* current);
 
 int setBit(BYTE* block, int index, int value);
-
-// int dirEntryPosition(int offset, UINT32 block[8]);
 
 int writeBlock(Disk* disk, unsigned int block_idx, void* block);
 int readBlock(Disk* disk, unsigned int block_idx, void* block);

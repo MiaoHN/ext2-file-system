@@ -141,13 +141,32 @@ int writeGdt(Disk* disk, Ext2SuperBlock* super_block, Ext2GroupDescTable* gdt) {
   return SUCCESS;
 }
 
-// int ext2Ls(Ext2FileSystem* file_system, Ext2Inode* current) {
-//   Ext2Inode node;
-//   Ext2DirEntry dir;
-//   for (unsigned int i = 0; i< current->size; i++){
+int getRootInode(Ext2FileSystem* file_system, Ext2Inode* inode) {
+  BYTE block[BLOCK_SIZE];
+  readBlock(file_system->disk, INODE_TABLE_BASE, block);
+  memcpy(inode, block, sizeof(Ext2Inode));
+  return SUCCESS;
+}
 
-//   }
-// }
+int ext2Ls(Ext2FileSystem* file_system, Ext2Inode* current) {
+  unsigned int items = current->size / DIR_SIZE;
+  Ext2Inode node;
+  Ext2DirEntry dir;
+  // 读取 current 对应第一块 block
+  BYTE block[BLOCK_SIZE];
+  readBlock(file_system->disk, current->block[0], block);
+  printf("Type\t\tName\n");
+  for (unsigned int i = 0; i < items; i++) {
+    memcpy(&dir, block + sizeof(Ext2DirEntry) * i, sizeof(Ext2DirEntry));
+    if (dir.file_type == EXT2_DIR) {
+      printf("Dir\t\t");
+    } else {
+      printf("File\t\t");
+    }
+    printf("%s\n", dir.name);
+  }
+  return SUCCESS;
+}
 
 int setBit(BYTE* block, int index, int value) {
   int byte = index / 8;
@@ -159,47 +178,6 @@ int setBit(BYTE* block, int index, int value) {
     block[byte] |= (0x1 << (7 - index));
   return SUCCESS;
 }
-
-// int dirEntryPosition(int offset, UINT32 block[8]) {
-//   int dir_block = offset / 512;     // 存储目录需要的块数
-//   int block_offset = offset % 512;  // 块内偏移字节数
-//   int a;
-//   if (dir_block < 6) {
-//     // 前6个直接索引
-//     return DATA_BLOCK_BASE + block[dir_block];
-//   } else {
-//     // 间接索引
-//     dir_block = dir_block - 6;
-//     if (dir_block < 128) {
-//       // 一个块512字节，一个int为4个字节，一级索引有512/4=128个
-//       int a;
-//       fseek(fp,
-//             DATA_BEGIN_BLOCK * BLOCK_SIZE + i_block[6] * BLOCK_SIZE +
-//                 dir_blocks * 4,
-//             SEEK_SET);
-//       fread(&a, sizeof(int), 1, fp);
-//       BYTE block[BLOCK_SIZE];
-//       memset(block, 0, BLOCK_SIZE);
-//       disk
-//       return DATA_BEGIN_BLOCK * BLOCK_SIZE + a * BLOCK_SIZE + block_offset;
-//     } else {
-//       // 二级索引
-//       dir_blocks = dir_blocks - 128;
-//       fseek(fp,
-//             DATA_BEGIN_BLOCK * BLOCK_SIZE + i_block[7] * BLOCK_SIZE / 128 *
-//             4, SEEK_SET);
-//       fread(&a, sizeof(int), 1, fp);
-//       fseek(
-//           fp,
-//           DATA_BEGIN_BLOCK * BLOCK_SIZE + a * BLOCK_SIZE + dir_blocks % 128 *
-//           4, SEEK_SET);
-//       fread(&a, sizeof(int), 1, fp);
-//       return DATA_BEGIN_BLOCK * BLOCK_SIZE + a * BLOCK_SIZE + block_offset;
-//     }
-//     fclose(fp);
-//   }
-//   return 0;
-// }
 
 int writeBlock(Disk* disk, unsigned int block_idx, void* block) {
   disk->write_disk(disk, block_idx, block);

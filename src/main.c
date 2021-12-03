@@ -4,13 +4,15 @@
 #include "ext2.h"
 
 int main() {
-  Disk disk;
-  // makeDisk(&disk , "./my_disk.dsk", NUMBER_OF_BLOCKS);
-  loadDisk(&disk, "./my_disk.dsk");
+  Ext2FileSystem file_system;
+  file_system.disk = malloc(sizeof(Disk));
+  makeDisk(file_system.disk, "my_disk.dsk", NUMBER_OF_BLOCKS);
 
-  format(&disk);
+  format(file_system.disk);
+  Ext2Inode current;
+  getRootInode(&file_system, &current);
 
-  printf("Disk Info:\n");
-  printf("    block size: \n");
+  ext2Ls(&file_system, &current);
+
   return 0;
 }
