@@ -393,7 +393,7 @@ int ext2Mkdir(Ext2FileSystem* file_system, Ext2Inode* current, char* name) {
   Ext2Inode new_inode;
   memset(&new_inode, 0, sizeof(Ext2Inode));
   new_inode.mode = 2;
-  new_inode.blocks = 1;           // 当前和上一层目录
+  new_inode.blocks = 2;           // 当前和上一层目录
   new_inode.size = DIR_SIZE * 2;  // 两个文件夹
   new_inode.block[0] = block_location.block_idx;
   addInode(file_system, &new_inode, &inode_location);
@@ -417,6 +417,46 @@ int ext2Mkdir(Ext2FileSystem* file_system, Ext2Inode* current, char* name) {
   entry->file_type = EXT2_DIR;
   // 写入磁盘
   writeBlock(file_system->disk, block_location.block_idx, block);
+
+  return SUCCESS;
+}
+
+int ext2Touch(Ext2FileSystem*file_system, Ext2Inode*current, char*name) {
+  Ext2DirEntry* entry = (Ext2DirEntry*)malloc(sizeof(Ext2DirEntry));
+  BYTE block[BLOCK_SIZE];
+  // 查询是否已经存在同名文件
+  for (int i = 0; i < current->size / DIR_SIZE; i++) {
+    Ext2Location dir_location = findDirEntry(file_system, i, current->block);
+    readBlock(file_system->disk, dir_location.block_idx, block);
+    memcpy(entry, block + dir_location.offset, sizeof(Ext2DirEntry));
+    if (!strcmp(entry->name, name)) {
+      // 存在同名文件
+      printf("There are already a file or directory named %s\n", name);
+      return FAILURE;
+    }
+  }
+
+  // 没有同名文件或文件夹，新建一个 inode 和对应的 data block
+  unsigned int inode_idx;
+  Ext2Location inode_location = findFreeInode(file_system, &inode_idx);
+
+  // 获得当前目录的 inode 值
+  entry = (Ext2DirEntry*)block;
+  readBlock(file_system->disk, current->block[0], block);
+  while (strcmp(entry->name, ".")) {
+    entry++;
+  }
+  unsigned int parent_inode = entry->inode;
+  addDirEntry(file_system, current, inode_idx, inode_location, EXT2_FILE, name);
+
+  // 写入 inode
+  Ext2Inode new_inode;
+  memset(&new_inode, 0, sizeof(Ext2Inode));
+  new_inode.mode = 2;
+  new_inode.blocks = 1;   
+  new_inode.size = 0;  // 文件暂无内容
+  memset(new_inode.block, 0, sizeof(new_inode.block));
+  addInode(file_system, &new_inode, &inode_location);
 
   return SUCCESS;
 }

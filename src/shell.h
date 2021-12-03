@@ -96,6 +96,22 @@ int shell_mkdir(char **args) {
   return 1;
 }
 
+int shell_touch(char **args) {
+  if (is_mounted == 0) {
+    printf("The file system isn't mounted!\n");
+    return 1;
+  }
+
+  if (args[1] == NULL) {
+    printf("usage: touch <file-name>\n");
+    return 1;
+  }
+
+  ext2Touch(&shell_entry.file_system, &shell_entry.current_user, args[1]);
+  printf("Successfully make file named \"%s\"\n", args[1]);
+  return 1;
+}
+
 typedef struct Command {
   char *name;
   int (*func)(char **);
@@ -104,7 +120,7 @@ typedef struct Command {
 static Command commands[] = {
     {"ls", &shell_ls},         {"makedisk", &shell_makedisk},
     {"format", &shell_format}, {"mount", &shell_mount},
-    {"mkdir", &shell_mkdir},
+    {"mkdir", &shell_mkdir},   {"touch", &shell_touch},
 };
 
 int shellFuncNum() { return sizeof(commands) / sizeof(Command); }

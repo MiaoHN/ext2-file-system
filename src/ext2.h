@@ -171,6 +171,10 @@ int ext2Ls(Ext2FileSystem* file_system, Ext2Inode* current);
 int ext2Mount(Ext2FileSystem* file_system, Ext2Inode* current, char* path);
 
 int ext2Mkdir(Ext2FileSystem* file_system, Ext2Inode* current, char* name);
+int ext2Touch(Ext2FileSystem* file_system, Ext2Inode* current, char* name);
+
+int ext2Open(Ext2FileSystem* file_system, Ext2Inode* current, char* name);
+int ext2Close(Ext2FileSystem* file_system, Ext2Inode* currnet);
 
 int setBit(BYTE* block, int index, int value);
 int getOffset(BYTE byte);
