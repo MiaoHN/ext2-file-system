@@ -153,10 +153,13 @@ unsigned int addDirEntry(Ext2FileSystem* file_system, Ext2Inode* inode,
 
 Ext2Location findFreeInode(Ext2FileSystem* file_system, unsigned int* idx);
 
-Ext2Location findFreeBlock(Ext2FileSystem* file_system, unsigned int* idx);
+Ext2Location findFreeBlock(Ext2FileSystem* file_system);
 
 Ext2Location findDirEntry(Ext2FileSystem* file_system, unsigned int index,
                           unsigned int block[8]);
+
+int copyInode(Ext2FileSystem* file_system, unsigned int inode_idx,
+              Ext2Inode* inode);
 
 /**
  * @brief 将 disk 初始化文件系统

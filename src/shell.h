@@ -112,6 +112,21 @@ int shell_touch(char **args) {
   return 1;
 }
 
+int shell_cd(char**args){
+  if (is_mounted == 0) {
+    printf("The file system isn't mounted!\n");
+    return 1;
+  }
+
+  if (args[1] == NULL) {
+    printf("usage: cd <dir-name>\n");
+    return 1;
+  }
+
+  ext2Open(&shell_entry.file_system, &shell_entry.current_user, args[1]);
+  return 1;
+}
+
 typedef struct Command {
   char *name;
   int (*func)(char **);
@@ -121,6 +136,7 @@ static Command commands[] = {
     {"ls", &shell_ls},         {"makedisk", &shell_makedisk},
     {"format", &shell_format}, {"mount", &shell_mount},
     {"mkdir", &shell_mkdir},   {"touch", &shell_touch},
+    {"cd", &shell_cd},
 };
 
 int shellFuncNum() { return sizeof(commands) / sizeof(Command); }
@@ -194,7 +210,7 @@ int shellLoop() {
   int status;
 
   do {
-    char current_path[32];
+    char current_path[32] = {0};
     // getCurrentPath(current_path);
     printf("%s > ", current_path);
     line = shellReadLine();

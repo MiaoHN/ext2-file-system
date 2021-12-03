@@ -53,7 +53,7 @@ int initInodeBitmap(Disk* disk, Ext2SuperBlock* super_block) {
   BYTE block[BLOCK_SIZE];
   memset(block, 0, BLOCK_SIZE);
 
-  for (int i = 0; i < 10; i++) setBit(block, i, 0);
+  setBit(block, 0, 1);
   writeBlock(disk, INODE_BITMAP_BASE, block);
 
   return SUCCESS;
@@ -63,7 +63,7 @@ int initBlockBitmap(Disk* disk, Ext2SuperBlock* super_block) {
   BYTE block[BLOCK_SIZE];
   memset(block, 0, BLOCK_SIZE);
 
-  for (unsigned int i = 0; i < DATA_BLOCK_BASE; i++) setBit(block, i, 1);
+  setBit(block, 0, 1);
   writeBlock(disk, BLOCK_BITMAP_BASE, block);
 
   return SUCCESS;
@@ -190,7 +190,7 @@ Ext2Location findFreeInode(Ext2FileSystem* file_system, unsigned int* idx) {
   return location;
 }
 
-Ext2Location findFreeBlock(Ext2FileSystem* file_system, unsigned int* idx) {
+Ext2Location findFreeBlock(Ext2FileSystem* file_system) {
   Ext2Location location;
   BYTE block[BLOCK_SIZE];
   readBlock(file_system->disk, BLOCK_BITMAP_BASE, block);
@@ -210,7 +210,6 @@ Ext2Location findFreeBlock(Ext2FileSystem* file_system, unsigned int* idx) {
       memcpy(block, file_system->gdt, sizeof(Ext2GroupDescTable));
       writeBlock(file_system->disk, GDT_BLOCK_BASE, block);
       unsigned int loc = i * 8 + offset;
-      *idx = loc;
       location.block_idx = DATA_BLOCK_BASE + loc;
       location.offset = 0;
       return location;
@@ -231,34 +230,44 @@ Ext2Location findDirEntry(Ext2FileSystem* file_system, unsigned int index,
   location.offset = dir_offset * DIR_SIZE;
   if (dir_block < 6) {
     // 直接寻址
-    location.block_idx = DATA_BLOCK_BASE + block[dir_block];
+    location.block_idx = block[dir_block];
     return location;
   } else {
     dir_block = dir_block - 6;
     if (dir_block < BLOCK_SIZE / 4) {
       // 一个 block 512 字节，一个 int 4 个字节，所以一个 block 可以存储 128
       // 个 block
-      readBlock(file_system->disk, DATA_BLOCK_BASE + block[6], tmp_block);
+      readBlock(file_system->disk, block[6], tmp_block);
       memcpy(&num, tmp_block + dir_block * sizeof(unsigned int),
              sizeof(unsigned int));
-      location.block_idx = DATA_BLOCK_BASE + num;
+      location.block_idx = num;
       return location;
     } else {
       // 二级索引
       dir_block = dir_block - BLOCK_SIZE / 4;
       unsigned int block_offset = dir_block / (BLOCK_SIZE / DIR_SIZE);
-      readBlock(file_system->disk, DATA_BLOCK_BASE + block[7], tmp_block);
+      readBlock(file_system->disk, block[7], tmp_block);
       memcpy(&num, tmp_block + block_offset * sizeof(unsigned int),
              sizeof(unsigned int));
-      readBlock(file_system->disk, DATA_BLOCK_BASE + num, tmp_block);
+      readBlock(file_system->disk, num, tmp_block);
       memcpy(&num, tmp_block + dir_block % (BLOCK_SIZE / DIR_SIZE),
              sizeof(unsigned int));
-      location.block_idx = DATA_BLOCK_BASE + num;
+      location.block_idx = num;
       return location;
     }
   }
   location.block_idx = -1;
   return location;
+}
+
+int copyInode(Ext2FileSystem* file_system, unsigned int inode_idx,
+              Ext2Inode* inode) {
+  BYTE block[BLOCK_SIZE];
+  unsigned int inode_block = inode_idx / INODES_PER_BLOCK;
+  unsigned int inode_offset = inode_idx % INODES_PER_BLOCK;
+  readBlock(file_system->disk, INODE_TABLE_BASE + inode_block, block);
+  memcpy(inode, block + inode_offset * INODE_SIZE, sizeof(Ext2Inode));
+  return SUCCESS;
 }
 
 unsigned int addDirEntry(Ext2FileSystem* file_system, Ext2Inode* inode,
@@ -274,28 +283,25 @@ unsigned int addDirEntry(Ext2FileSystem* file_system, Ext2Inode* inode,
   unsigned int total = inode->size / DIR_SIZE;
   unsigned int dir_block = total / (BLOCK_SIZE / DIR_SIZE);
   unsigned int dir_offset = total % (BLOCK_SIZE / DIR_SIZE);
-  if (total <= 6) {
+  if (total < 6) {
     // 直接索引
-    readBlock(file_system->disk, inode->block[dir_block],
-              block);
+    readBlock(file_system->disk, inode->block[dir_block], block);
     memcpy(block + dir_offset * DIR_SIZE, &entry, sizeof(Ext2DirEntry));
-    writeBlock(file_system->disk, inode->block[dir_block],
-               block);
+    writeBlock(file_system->disk, inode->block[dir_block], block);
     inode->size += DIR_SIZE;
     return SUCCESS;
   } else {
     dir_block = dir_block - 6;
     if (inode->blocks < 7) {
-      unsigned int block_idx;
-      Ext2Location location = findFreeBlock(file_system, &block_idx);
+      Ext2Location location = findFreeBlock(file_system);
       inode->blocks++;
-      inode->block[6] = block_idx;
+      inode->block[6] = location.block_idx;
     }
     if (dir_block < BLOCK_SIZE / sizeof(unsigned int)) {
       // 一级索引
-      readBlock(file_system->disk, DATA_BLOCK_BASE + inode->block[6], block);
+      readBlock(file_system->disk, inode->block[6], block);
       memcpy(block + dir_offset * DIR_SIZE, &entry, sizeof(Ext2DirEntry));
-      writeBlock(file_system->disk, DATA_BLOCK_BASE + inode->block[dir_block],
+      writeBlock(file_system->disk, inode->block[dir_block],
                  block);
       inode->size += DIR_SIZE;
       return SUCCESS;
@@ -304,7 +310,7 @@ unsigned int addDirEntry(Ext2FileSystem* file_system, Ext2Inode* inode,
       dir_block = dir_block - BLOCK_SIZE / sizeof(unsigned int);
       unsigned block_offset = dir_block / (BLOCK_SIZE / DIR_SIZE);
       unsigned int num;
-      readBlock(file_system->disk, DATA_BLOCK_BASE + inode->block[7], block);
+      readBlock(file_system->disk, inode->block[7], block);
       memcpy(&num, block + block_offset * sizeof(unsigned int),
              sizeof(unsigned int));
       readBlock(file_system->disk, DATA_BLOCK_BASE + num, block);
@@ -323,7 +329,7 @@ int ext2Ls(Ext2FileSystem* file_system, Ext2Inode* current) {
   // 读取 current 对应第一块 block
   BYTE block[BLOCK_SIZE];
   readBlock(file_system->disk, current->block[0], block);
-  printf("Type\t\tName\n");
+  printf("Type\t\tName\tInode\n");
   for (unsigned int i = 0; i < items; i++) {
     memcpy(&dir, block + sizeof(Ext2DirEntry) * i, sizeof(Ext2DirEntry));
     if (dir.file_type == EXT2_DIR) {
@@ -331,7 +337,7 @@ int ext2Ls(Ext2FileSystem* file_system, Ext2Inode* current) {
     } else {
       printf("File\t\t");
     }
-    printf("%s\n", dir.name);
+    printf("%s\t%d\n", dir.name, dir.inode);
   }
   return SUCCESS;
 }
@@ -376,9 +382,8 @@ int ext2Mkdir(Ext2FileSystem* file_system, Ext2Inode* current, char* name) {
 
   // 没有同名文件或文件夹，新建一个 inode 和对应的 data block
   unsigned int inode_idx;
-  unsigned int block_idx;
   Ext2Location inode_location = findFreeInode(file_system, &inode_idx);
-  Ext2Location block_location = findFreeBlock(file_system, &block_idx);
+  Ext2Location block_location = findFreeBlock(file_system);
 
   // 获得当前目录的 inode 值
   entry = (Ext2DirEntry*)block;
@@ -393,7 +398,7 @@ int ext2Mkdir(Ext2FileSystem* file_system, Ext2Inode* current, char* name) {
   Ext2Inode new_inode;
   memset(&new_inode, 0, sizeof(Ext2Inode));
   new_inode.mode = 2;
-  new_inode.blocks = 2;           // 当前和上一层目录
+  new_inode.blocks = 1;           // 当前和上一层目录
   new_inode.size = DIR_SIZE * 2;  // 两个文件夹
   new_inode.block[0] = block_location.block_idx;
   addInode(file_system, &new_inode, &inode_location);
@@ -421,7 +426,7 @@ int ext2Mkdir(Ext2FileSystem* file_system, Ext2Inode* current, char* name) {
   return SUCCESS;
 }
 
-int ext2Touch(Ext2FileSystem*file_system, Ext2Inode*current, char*name) {
+int ext2Touch(Ext2FileSystem* file_system, Ext2Inode* current, char* name) {
   Ext2DirEntry* entry = (Ext2DirEntry*)malloc(sizeof(Ext2DirEntry));
   BYTE block[BLOCK_SIZE];
   // 查询是否已经存在同名文件
@@ -453,12 +458,36 @@ int ext2Touch(Ext2FileSystem*file_system, Ext2Inode*current, char*name) {
   Ext2Inode new_inode;
   memset(&new_inode, 0, sizeof(Ext2Inode));
   new_inode.mode = 2;
-  new_inode.blocks = 1;   
+  new_inode.blocks = 1;
   new_inode.size = 0;  // 文件暂无内容
   memset(new_inode.block, 0, sizeof(new_inode.block));
   addInode(file_system, &new_inode, &inode_location);
 
   return SUCCESS;
+}
+
+int ext2Open(Ext2FileSystem* file_system, Ext2Inode* current, char* name) {
+  Ext2DirEntry entry;
+  BYTE block[BLOCK_SIZE];
+  for (int i = 0; i < current->size / DIR_SIZE; i++) {
+    Ext2Location dir_location = findDirEntry(file_system, i, current->block);
+    readBlock(file_system->disk, dir_location.block_idx, block);
+    memcpy(&entry, block + dir_location.offset, sizeof(Ext2DirEntry));
+    if (!strcmp(entry.name, name)) {
+      if (entry.file_type == EXT2_FILE) {
+        printf("It's not a directory!\n");
+        return FAILURE;
+      }
+      copyInode(file_system, entry.inode, current);
+      return SUCCESS;
+    }
+  }
+  printf("There's no directory named \"%s\"\n", name);
+  return FAILURE;
+}
+
+int ext2Close(Ext2FileSystem* file_system, Ext2Inode* current) {
+  return ext2Open(file_system, current, "..");
 }
 
 int setBit(BYTE* block, int index, int value) {
