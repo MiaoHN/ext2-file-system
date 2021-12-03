@@ -2,7 +2,7 @@
 #define __COMMON_H__
 
 #define SUCCESS 0
-#define FAILURE 1
+#define FAILURE -1
 
 #include <assert.h>
 
@@ -29,6 +29,7 @@ typedef unsigned char BYTE;
 #define FILE_TYPE 1
 
 #define SECTORS_PRE_BLOCK 1
+#define INODES_PER_BLOCK (BLOCK_SIZE / INODE_SIZE)
 
 #define SECTOR_SIZE 512
 #define BLOCK_SIZE (SECTOR_SIZE * SECTORS_PRE_BLOCK)

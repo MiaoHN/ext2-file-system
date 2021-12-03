@@ -93,6 +93,10 @@ typedef struct Ext2Inode {
   UINT16 reserved[9];           // 保留
 } Ext2Inode;
 
+typedef struct Ext2InodeTable {
+  Ext2Inode table[NUMBER_OF_INODES];
+} Ext2InodeTable;
+
 /**
  * @brief 目录块，占用大小 32 字节
  *
@@ -105,6 +109,15 @@ typedef struct Ext2DirEntry {
   char name[DIR_NAME_LEN];  // 文件名
   BYTE pad[9];              // 填充
 } Ext2DirEntry;
+
+/**
+ * @brief 保存磁盘中的绝对位置
+ *
+ */
+typedef struct Ext2Location {
+  UINT32 block_idx;
+  UINT32 offset;  // 单位 (byte)
+} Ext2Location;
 
 /**
  * @brief 文件系统
@@ -131,6 +144,20 @@ int writeGdt(Disk* disk, Ext2SuperBlock* super_block, Ext2GroupDescTable* gdt);
 
 int getRootInode(Ext2FileSystem* file_system, Ext2Inode* inode);
 
+int addInode(Ext2FileSystem* file_system, Ext2Inode* inode,
+             Ext2Location* location);
+
+unsigned int addDirEntry(Ext2FileSystem* file_system, Ext2Inode* inode,
+                         unsigned int inode_idx, Ext2Location inode_location,
+                         int type, char* name);
+
+Ext2Location findFreeInode(Ext2FileSystem* file_system, unsigned int* idx);
+
+Ext2Location findFreeBlock(Ext2FileSystem* file_system, unsigned int* idx);
+
+Ext2Location findDirEntry(Ext2FileSystem* file_system, unsigned int index,
+                          unsigned int block[8]);
+
 /**
  * @brief 将 disk 初始化文件系统
  *
@@ -143,7 +170,10 @@ int ext2Ls(Ext2FileSystem* file_system, Ext2Inode* current);
 
 int ext2Mount(Ext2FileSystem* file_system, Ext2Inode* current, char* path);
 
+int ext2Mkdir(Ext2FileSystem* file_system, Ext2Inode* current, char* name);
+
 int setBit(BYTE* block, int index, int value);
+int getOffset(BYTE byte);
 
 int writeBlock(Disk* disk, unsigned int block_idx, void* block);
 int readBlock(Disk* disk, unsigned int block_idx, void* block);

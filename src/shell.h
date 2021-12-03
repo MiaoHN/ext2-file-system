@@ -15,7 +15,7 @@
 #define LSH_TOK_DELIM " \t\r\n\a"
 
 typedef struct ShellEntry {
-  Ext2Inode current_user;  // 当前位置
+  Ext2Inode current_user;      // 当前位置
   Ext2FileSystem file_system;  // 文件系统
 } ShellEntry;
 
@@ -80,16 +80,31 @@ int shell_ls(char **args) {
   return 1;
 }
 
+int shell_mkdir(char **args) {
+  if (is_mounted == 0) {
+    printf("The file system isn't mounted!\n");
+    return 1;
+  }
+
+  if (args[1] == NULL) {
+    printf("usage: mkdir <dir-name>\n");
+    return 1;
+  }
+
+  ext2Mkdir(&shell_entry.file_system, &shell_entry.current_user, args[1]);
+  printf("Successfully make directory named \"%s\"\n", args[1]);
+  return 1;
+}
+
 typedef struct Command {
   char *name;
   int (*func)(char **);
 } Command;
 
 static Command commands[] = {
-    {"ls", &shell_ls},
-    {"makedisk", &shell_makedisk},
-    {"format", &shell_format},
-    {"mount", &shell_mount},
+    {"ls", &shell_ls},         {"makedisk", &shell_makedisk},
+    {"format", &shell_format}, {"mount", &shell_mount},
+    {"mkdir", &shell_mkdir},
 };
 
 int shellFuncNum() { return sizeof(commands) / sizeof(Command); }

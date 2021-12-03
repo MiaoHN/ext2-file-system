@@ -54,7 +54,7 @@ int writeDisk(Disk* disk, int block_idx, void* data) {
 int readDisk(Disk* disk, int block_idx, void* data) {
   assert(data != NULL);
   if (block_idx >= NUMBER_OF_BLOCKS) {
-    printf("failed to write\n");
+    printf("failed to read\n");
     return FAILURE;
   }
 

@@ -149,6 +149,173 @@ int getRootInode(Ext2FileSystem* file_system, Ext2Inode* inode) {
   return SUCCESS;
 }
 
+int addInode(Ext2FileSystem* file_system, Ext2Inode* inode,
+             Ext2Location* location) {
+  BYTE block[BLOCK_SIZE];
+  readBlock(file_system->disk, location->block_idx, block);
+  memcpy(block + location->offset, inode, INODE_SIZE);
+  writeBlock(file_system->disk, location->block_idx, block);
+
+  return SUCCESS;
+}
+
+Ext2Location findFreeInode(Ext2FileSystem* file_system, unsigned int* idx) {
+  Ext2Location location;
+  BYTE block[BLOCK_SIZE];
+  readBlock(file_system->disk, INODE_BITMAP_BASE, block);
+  for (int i = 0; i < NUMBER_OF_INODES / 8; i++) {
+    if (block[i] != 0xff) {
+      // 找到可用空位
+      unsigned int offset = getOffset(block[i]);
+      block[i] |= (0x80 >> offset);
+      // 修改文件系统信息
+      writeBlock(file_system->disk, INODE_BITMAP_BASE, block);
+      memset(block, 0, BLOCK_SIZE);
+      file_system->super_block->free_inodes_count--;
+      memcpy(block, file_system->super_block, sizeof(Ext2SuperBlock));
+      writeBlock(file_system->disk, SUPER_BLOCK_BASE, block);
+      file_system->gdt->table[0].free_inodes_count--;
+      memset(block, 0, BLOCK_SIZE);
+      memcpy(block, file_system->gdt, sizeof(Ext2GroupDescTable));
+      writeBlock(file_system->disk, GDT_BLOCK_BASE, block);
+      unsigned int loc = i * 8 + offset;
+      *idx = loc;
+      location.block_idx = INODE_TABLE_BASE + (loc * INODE_SIZE) / BLOCK_SIZE;
+      location.offset = (loc * INODE_SIZE) % BLOCK_SIZE;
+      return location;
+    }
+  }
+  location.block_idx = -1;
+  location.offset = -1;
+  return location;
+}
+
+Ext2Location findFreeBlock(Ext2FileSystem* file_system, unsigned int* idx) {
+  Ext2Location location;
+  BYTE block[BLOCK_SIZE];
+  readBlock(file_system->disk, BLOCK_BITMAP_BASE, block);
+  for (int i = 0; i < NUMBER_OF_BLOCKS / 8; i++) {
+    if (block[i] != 0xff) {
+      // 找到可用空位
+      unsigned int offset = getOffset(block[i]);
+      block[i] |= (0x80 >> offset);
+      // 修改文件系统信息
+      writeBlock(file_system->disk, BLOCK_BITMAP_BASE, block);
+      memset(block, 0, BLOCK_SIZE);
+      file_system->super_block->free_blocks_count--;
+      memcpy(block, file_system->super_block, sizeof(Ext2SuperBlock));
+      writeBlock(file_system->disk, SUPER_BLOCK_BASE, block);
+      file_system->gdt->table[0].free_blocks_count--;
+      memset(block, 0, BLOCK_SIZE);
+      memcpy(block, file_system->gdt, sizeof(Ext2GroupDescTable));
+      writeBlock(file_system->disk, GDT_BLOCK_BASE, block);
+      unsigned int loc = i * 8 + offset;
+      *idx = loc;
+      location.block_idx = DATA_BLOCK_BASE + loc;
+      location.offset = 0;
+      return location;
+    }
+  }
+  location.block_idx = -1;
+  location.offset = -1;
+  return location;
+}
+
+Ext2Location findDirEntry(Ext2FileSystem* file_system, unsigned int index,
+                          unsigned int block[8]) {
+  Ext2Location location;
+  BYTE tmp_block[BLOCK_SIZE];
+  unsigned int num;
+  unsigned int dir_block = index / (BLOCK_SIZE / DIR_SIZE);
+  unsigned int dir_offset = index % (BLOCK_SIZE / DIR_SIZE);
+  location.offset = dir_offset * DIR_SIZE;
+  if (dir_block < 6) {
+    // 直接寻址
+    location.block_idx = DATA_BLOCK_BASE + block[dir_block];
+    return location;
+  } else {
+    dir_block = dir_block - 6;
+    if (dir_block < BLOCK_SIZE / 4) {
+      // 一个 block 512 字节，一个 int 4 个字节，所以一个 block 可以存储 128
+      // 个 block
+      readBlock(file_system->disk, DATA_BLOCK_BASE + block[6], tmp_block);
+      memcpy(&num, tmp_block + dir_block * sizeof(unsigned int),
+             sizeof(unsigned int));
+      location.block_idx = DATA_BLOCK_BASE + num;
+      return location;
+    } else {
+      // 二级索引
+      dir_block = dir_block - BLOCK_SIZE / 4;
+      unsigned int block_offset = dir_block / (BLOCK_SIZE / DIR_SIZE);
+      readBlock(file_system->disk, DATA_BLOCK_BASE + block[7], tmp_block);
+      memcpy(&num, tmp_block + block_offset * sizeof(unsigned int),
+             sizeof(unsigned int));
+      readBlock(file_system->disk, DATA_BLOCK_BASE + num, tmp_block);
+      memcpy(&num, tmp_block + dir_block % (BLOCK_SIZE / DIR_SIZE),
+             sizeof(unsigned int));
+      location.block_idx = DATA_BLOCK_BASE + num;
+      return location;
+    }
+  }
+  location.block_idx = -1;
+  return location;
+}
+
+unsigned int addDirEntry(Ext2FileSystem* file_system, Ext2Inode* inode,
+                         unsigned int inode_idx, Ext2Location inode_location,
+                         int type, char* name) {
+  Ext2DirEntry entry;
+  entry.file_type = type;
+  entry.inode = inode_idx;
+  strcpy(entry.name, name);
+  BYTE block[BLOCK_SIZE];
+  entry.name_len = strlen(name);
+  entry.rec_len = 2;
+  unsigned int total = inode->size / DIR_SIZE;
+  unsigned int dir_block = total / (BLOCK_SIZE / DIR_SIZE);
+  unsigned int dir_offset = total % (BLOCK_SIZE / DIR_SIZE);
+  if (total <= 6) {
+    // 直接索引
+    readBlock(file_system->disk, inode->block[dir_block],
+              block);
+    memcpy(block + dir_offset * DIR_SIZE, &entry, sizeof(Ext2DirEntry));
+    writeBlock(file_system->disk, inode->block[dir_block],
+               block);
+    inode->size += DIR_SIZE;
+    return SUCCESS;
+  } else {
+    dir_block = dir_block - 6;
+    if (inode->blocks < 7) {
+      unsigned int block_idx;
+      Ext2Location location = findFreeBlock(file_system, &block_idx);
+      inode->blocks++;
+      inode->block[6] = block_idx;
+    }
+    if (dir_block < BLOCK_SIZE / sizeof(unsigned int)) {
+      // 一级索引
+      readBlock(file_system->disk, DATA_BLOCK_BASE + inode->block[6], block);
+      memcpy(block + dir_offset * DIR_SIZE, &entry, sizeof(Ext2DirEntry));
+      writeBlock(file_system->disk, DATA_BLOCK_BASE + inode->block[dir_block],
+                 block);
+      inode->size += DIR_SIZE;
+      return SUCCESS;
+    } else {
+      // 二级索引
+      dir_block = dir_block - BLOCK_SIZE / sizeof(unsigned int);
+      unsigned block_offset = dir_block / (BLOCK_SIZE / DIR_SIZE);
+      unsigned int num;
+      readBlock(file_system->disk, DATA_BLOCK_BASE + inode->block[7], block);
+      memcpy(&num, block + block_offset * sizeof(unsigned int),
+             sizeof(unsigned int));
+      readBlock(file_system->disk, DATA_BLOCK_BASE + num, block);
+      memcpy(block + dir_offset * DIR_SIZE, &entry, sizeof(Ext2DirEntry));
+      inode->size += DIR_SIZE;
+      return SUCCESS;
+    }
+  }
+  return FAILURE;
+}
+
 int ext2Ls(Ext2FileSystem* file_system, Ext2Inode* current) {
   unsigned int items = current->size / DIR_SIZE;
   Ext2Inode node;
@@ -192,6 +359,68 @@ int ext2Mount(Ext2FileSystem* file_system, Ext2Inode* current, char* path) {
   return SUCCESS;
 }
 
+int ext2Mkdir(Ext2FileSystem* file_system, Ext2Inode* current, char* name) {
+  Ext2DirEntry* entry = (Ext2DirEntry*)malloc(sizeof(Ext2DirEntry));
+  BYTE block[BLOCK_SIZE];
+  // 查询是否已经存在同名文件
+  for (int i = 0; i < current->size / DIR_SIZE; i++) {
+    Ext2Location dir_location = findDirEntry(file_system, i, current->block);
+    readBlock(file_system->disk, dir_location.block_idx, block);
+    memcpy(entry, block + dir_location.offset, sizeof(Ext2DirEntry));
+    if (!strcmp(entry->name, name)) {
+      // 存在同名文件
+      printf("There are already a file or directory named %s\n", name);
+      return FAILURE;
+    }
+  }
+
+  // 没有同名文件或文件夹，新建一个 inode 和对应的 data block
+  unsigned int inode_idx;
+  unsigned int block_idx;
+  Ext2Location inode_location = findFreeInode(file_system, &inode_idx);
+  Ext2Location block_location = findFreeBlock(file_system, &block_idx);
+
+  // 获得当前目录的 inode 值
+  entry = (Ext2DirEntry*)block;
+  readBlock(file_system->disk, current->block[0], block);
+  while (strcmp(entry->name, ".")) {
+    entry++;
+  }
+  unsigned int parent_inode = entry->inode;
+  addDirEntry(file_system, current, inode_idx, inode_location, EXT2_DIR, name);
+
+  // 写入 inode
+  Ext2Inode new_inode;
+  memset(&new_inode, 0, sizeof(Ext2Inode));
+  new_inode.mode = 2;
+  new_inode.blocks = 1;           // 当前和上一层目录
+  new_inode.size = DIR_SIZE * 2;  // 两个文件夹
+  new_inode.block[0] = block_location.block_idx;
+  addInode(file_system, &new_inode, &inode_location);
+
+  // 写入 dir entry
+  memset(block, 0, BLOCK_SIZE);
+  // 写入上级目录
+  entry->inode = parent_inode;
+  entry->rec_len = sizeof(Ext2DirEntry);
+  entry->file_type = EXT2_DIR;
+  entry->name_len = 2;
+  strcpy(entry->name, "..");
+  entry->file_type = EXT2_DIR;
+  // 写入当前目录
+  entry++;
+  entry->inode = inode_idx;
+  entry->rec_len = sizeof(Ext2DirEntry);
+  entry->file_type = EXT2_DIR;
+  entry->name_len = 1;
+  strcpy(entry->name, ".");
+  entry->file_type = EXT2_DIR;
+  // 写入磁盘
+  writeBlock(file_system->disk, block_location.block_idx, block);
+
+  return SUCCESS;
+}
+
 int setBit(BYTE* block, int index, int value) {
   int byte = index / 8;
   int offset = index % 8;
@@ -201,6 +430,18 @@ int setBit(BYTE* block, int index, int value) {
   else
     block[byte] |= (0x1 << (7 - index));
   return SUCCESS;
+}
+
+int getOffset(BYTE byte) {
+  int offset = 0;
+  while (1) {
+    if ((byte >> (7 - offset)) % 2 == 0) {
+      return offset;
+    } else {
+      offset++;
+    }
+  }
+  return -1;
 }
 
 int writeBlock(Disk* disk, unsigned int block_idx, void* block) {
