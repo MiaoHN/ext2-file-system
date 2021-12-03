@@ -142,22 +142,73 @@ int writeSuperBlock(Disk* disk, Ext2SuperBlock* super_block);
 
 int writeGdt(Disk* disk, Ext2SuperBlock* super_block, Ext2GroupDescTable* gdt);
 
+/**
+ * @brief 得到 file_system 的根目录 inode
+ *
+ * @param file_system
+ * @param inode
+ * @return int
+ */
 int getRootInode(Ext2FileSystem* file_system, Ext2Inode* inode);
 
+/**
+ * @brief 在 file_system 中添加一个 inode
+ *
+ * @param file_system
+ * @param inode 待添加的 inode 指针
+ * @param location 添加的位置
+ * @return int
+ */
 int addInode(Ext2FileSystem* file_system, Ext2Inode* inode,
              Ext2Location* location);
 
+/**
+ * @brief 给 inode 添加一个目录块信息
+ *
+ * @param file_system
+ * @param inode
+ * @param entry
+ * @return unsigned int
+ */
 unsigned int addDirEntry(Ext2FileSystem* file_system, Ext2Inode* inode,
-                         unsigned int inode_idx, Ext2Location inode_location,
-                         int type, char* name);
+                         Ext2DirEntry* entry);
 
-Ext2Location findFreeInode(Ext2FileSystem* file_system, unsigned int* idx);
+/**
+ * @brief 从文件系统中寻找空闲的 inode，并将其设为占用
+ *
+ * @param file_system
+ * @param idx 空闲 inode 的序号
+ * @return Ext2Location 空闲 inode 的绝对位置信息
+ */
+Ext2Location getFreeInode(Ext2FileSystem* file_system, unsigned int* idx);
 
-Ext2Location findFreeBlock(Ext2FileSystem* file_system);
+/**
+ * @brief 从文件系统中寻找空闲块，并将其设为占用
+ *
+ * @param file_system
+ * @return Ext2Location 块的绝对位置信息
+ */
+Ext2Location getFreeBlock(Ext2FileSystem* file_system);
 
-Ext2Location findDirEntry(Ext2FileSystem* file_system, unsigned int index,
+/**
+ * @brief 从 block 数组中找到第 index 处的块
+ *
+ * @param file_system
+ * @param index
+ * @param block
+ * @return Ext2Location 目录块的绝对位置信息
+ */
+Ext2Location getDirEntry(Ext2FileSystem* file_system, unsigned int index,
                           unsigned int block[8]);
 
+/**
+ * @brief 将第 inode_idx 个 inode 复制到 inode
+ *
+ * @param file_system
+ * @param inode_idx
+ * @param inode
+ * @return int
+ */
 int copyInode(Ext2FileSystem* file_system, unsigned int inode_idx,
               Ext2Inode* inode);
 
@@ -169,17 +220,71 @@ int copyInode(Ext2FileSystem* file_system, unsigned int inode_idx,
  */
 int format(Disk* disk);
 
+/**
+ * @brief 列出 current 所处位置的所有文件和目录
+ *
+ * @param file_system 当前文件系统
+ * @param current 当前 inode 位置
+ * @return int
+ */
 int ext2Ls(Ext2FileSystem* file_system, Ext2Inode* current);
 
+/**
+ * @brief 将位于 path 处的磁盘挂载到 file_system，并将 current 设为根目录
+ *
+ * @param file_system 被挂载的文件系统
+ * @param current 被设置为根目录的 inode
+ * @param path 磁盘位置
+ * @return int
+ */
 int ext2Mount(Ext2FileSystem* file_system, Ext2Inode* current, char* path);
 
+/**
+ * @brief 创建文件夹
+ *
+ * @param file_system
+ * @param current
+ * @param name
+ * @return int
+ */
 int ext2Mkdir(Ext2FileSystem* file_system, Ext2Inode* current, char* name);
+
+/**
+ * @brief 创建文件
+ *
+ * @param file_system
+ * @param current
+ * @param name
+ * @return int
+ */
 int ext2Touch(Ext2FileSystem* file_system, Ext2Inode* current, char* name);
 
+/**
+ * @brief 从 current 处打开名为 name 的路径
+ *
+ * @param file_system
+ * @param current 当前位置
+ * @param name 打开路径名称
+ * @return int
+ */
 int ext2Open(Ext2FileSystem* file_system, Ext2Inode* current, char* name);
-int ext2Close(Ext2FileSystem* file_system, Ext2Inode* currnet);
 
+/**
+ * @brief 将位图 block 位于 index 处的值设为 value
+ *
+ * @param block
+ * @param index
+ * @param value
+ * @return int
+ */
 int setBit(BYTE* block, int index, int value);
+
+/**
+ * @brief 得到从左往右第一个 0 的位置
+ *
+ * @param byte
+ * @return int
+ */
 int getOffset(BYTE byte);
 
 int writeBlock(Disk* disk, unsigned int block_idx, void* block);
