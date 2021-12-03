@@ -173,8 +173,22 @@ int ext2Mount(Ext2FileSystem* file_system, Ext2Inode* current, char* path) {
   if (file_system->disk == NULL) {
     file_system->disk = (Disk*)malloc(sizeof(Disk));
   }
+  if (file_system->super_block == NULL) {
+    file_system->super_block = (Ext2SuperBlock*)malloc(sizeof(Ext2SuperBlock));
+  }
+  if (file_system->gdt == NULL) {
+    file_system->gdt = (Ext2GroupDescTable*)malloc(sizeof(Ext2GroupDescTable));
+  }
+  // 挂载磁盘
   loadDisk(file_system->disk, path);
+  // 得到根路径
   getRootInode(file_system, current);
+  // 获取 superblock 和 gdt
+  BYTE block[BLOCK_SIZE];
+  readBlock(file_system->disk, SUPER_BLOCK_BASE, block);
+  memcpy(file_system->super_block, block, sizeof(Ext2SuperBlock));
+  readBlock(file_system->disk, GDT_BLOCK_BASE, block);
+  memcpy(file_system->gdt, block, sizeof(Ext2GroupDescTable));
   return SUCCESS;
 }
 

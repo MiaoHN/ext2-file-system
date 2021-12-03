@@ -16,7 +16,6 @@
 
 typedef struct ShellEntry {
   Ext2Inode current_user;  // 当前位置
-  Ext2DirEntry current_entry;
   Ext2FileSystem file_system;  // 文件系统
 } ShellEntry;
 
