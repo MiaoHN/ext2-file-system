@@ -141,6 +141,8 @@ int format(Disk* disk);
 
 int ext2Ls(Ext2FileSystem* file_system, Ext2Inode* current);
 
+int ext2Mount(Ext2FileSystem* file_system, Ext2Inode* current, char* path);
+
 int setBit(BYTE* block, int index, int value);
 
 int writeBlock(Disk* disk, unsigned int block_idx, void* block);

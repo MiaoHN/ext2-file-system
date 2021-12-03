@@ -143,6 +143,7 @@ int writeGdt(Disk* disk, Ext2SuperBlock* super_block, Ext2GroupDescTable* gdt) {
 
 int getRootInode(Ext2FileSystem* file_system, Ext2Inode* inode) {
   BYTE block[BLOCK_SIZE];
+  assert(file_system->disk != NULL);
   readBlock(file_system->disk, INODE_TABLE_BASE, block);
   memcpy(inode, block, sizeof(Ext2Inode));
   return SUCCESS;
@@ -165,6 +166,15 @@ int ext2Ls(Ext2FileSystem* file_system, Ext2Inode* current) {
     }
     printf("%s\n", dir.name);
   }
+  return SUCCESS;
+}
+
+int ext2Mount(Ext2FileSystem* file_system, Ext2Inode* current, char* path) {
+  if (file_system->disk == NULL) {
+    file_system->disk = (Disk*)malloc(sizeof(Disk));
+  }
+  loadDisk(file_system->disk, path);
+  getRootInode(file_system, current);
   return SUCCESS;
 }
 
