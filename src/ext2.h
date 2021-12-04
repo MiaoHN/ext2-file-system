@@ -145,6 +145,14 @@ int getGdt(Disk* disk, Ext2GroupDescTable* gdt);
 void getRootInode(Disk* disk, Ext2Inode* inode);
 
 /**
+ * @brief Get the Inode Index object
+ * 
+ * @param disk 
+ * @param inode 
+ */
+unsigned int getInodeIndex(Disk*disk, Ext2Inode* inode);
+
+/**
  * @brief 在 disk 中添加一个 inode
  *
  * @param disk
@@ -152,7 +160,7 @@ void getRootInode(Disk* disk, Ext2Inode* inode);
  * @param location 添加的位置
  * @return int
  */
-int addInode(Disk*, Ext2Inode* inode, Ext2Location* location);
+int writeInode(Disk*, Ext2Inode* inode, Ext2Location* location);
 
 int getInode(Disk* disk, unsigned int index, Ext2Inode* inode);
 
@@ -187,10 +195,17 @@ Ext2Location getFreeBlock(Disk* disk);
  *
  * @param disk
  * @param index
- * @param block
  * @return Ext2Location 目录块的绝对位置信息
  */
-Ext2Location getDirEntry(Disk* disk, unsigned int index, unsigned int block[8]);
+Ext2Location getDirEntryLocation(Disk* disk, unsigned int index, Ext2Inode*parent);
+
+int getDirEntry(Disk*disk, unsigned int index, Ext2Inode*parent, Ext2DirEntry*entry);
+int writeDirEntry(Disk*disk, unsigned int index, Ext2Inode*parent, Ext2DirEntry*entry);
+
+int getCurrentEntry(Disk*disk, Ext2Inode*inode, Ext2DirEntry*entry);
+int getParentEntry(Disk*disk, Ext2Inode*inode, Ext2DirEntry*entry);
+int writeCurrentEntry(Disk*disk, Ext2Inode*inode, Ext2DirEntry*entry);
+int writeParentEntry(Disk*disk, Ext2Inode*inode, Ext2DirEntry*entry);
 
 /**
  * @brief 将 disk 初始化文件系统
