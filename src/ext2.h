@@ -10,7 +10,7 @@ enum Ext2FileType {
 };
 
 /**
- * @brief 超级块占用一个 block
+ * @brief 超级块占用一个 block，512 bytes
  *
  */
 typedef struct Ext2SuperBlock {
@@ -46,7 +46,7 @@ typedef struct Ext2SuperBlock {
 } Ext2SuperBlock;
 
 /**
- * @brief 组描述符，占用大小 32 字节
+ * @brief 组描述符，占用大小 32 bytes
  *
  */
 typedef struct Ext2GroupDesc {
@@ -69,7 +69,7 @@ typedef struct Ext2GroupDescTable {
 } Ext2GroupDescTable;
 
 /**
- * @brief 索引节点，占用大小 128 字节
+ * @brief 索引节点，占用大小 128 bytes
  *
  */
 typedef struct Ext2Inode {
@@ -90,7 +90,7 @@ typedef struct Ext2Inode {
   UINT32 dir_acl;               // 目录访问控制表( ACL 已不再使用)
   BYTE frag;                    // 每块中的片数
   BYTE fsize;                   // 片的大小
-  UINT16 reserved[9];           // 保留
+  UINT16 reserved[24];          // 保留
 } Ext2Inode;
 
 typedef struct Ext2InodeTable {
@@ -98,7 +98,7 @@ typedef struct Ext2InodeTable {
 } Ext2InodeTable;
 
 /**
- * @brief 目录块，占用大小 32 字节
+ * @brief 目录块，占用大小 32 bytes
  *
  */
 typedef struct Ext2DirEntry {
@@ -125,22 +125,22 @@ typedef struct Ext2Location {
  */
 typedef struct Ext2FileSystem {
   Disk* disk;
-  Ext2SuperBlock* super_block;
-  Ext2GroupDescTable* gdt;
 } Ext2FileSystem;
 
 // initialize -----------
 
 int initSuperBlock(Ext2SuperBlock* super_block);
 int initGdt(Ext2GroupDescTable* gdt, Ext2SuperBlock* super_block);
-int initInodeBitmap(Disk* disk, Ext2SuperBlock* super_block);
-int initBlockBitmap(Disk* disk, Ext2SuperBlock* super_block);
+int initInodeBitmap(Disk* disk);
+int initBlockBitmap(Disk* disk);
 
-int initRootDir(Disk* disk, Ext2SuperBlock* super_block);
+int initRootDir(Disk* disk);
 
 int writeSuperBlock(Disk* disk, Ext2SuperBlock* super_block);
+int writeGdt(Disk* disk, Ext2GroupDescTable* gdt);
 
-int writeGdt(Disk* disk, Ext2SuperBlock* super_block, Ext2GroupDescTable* gdt);
+int getSuperBlock(Disk* disk, Ext2SuperBlock* super_block);
+int getGdt(Disk* disk, Ext2GroupDescTable* gdt);
 
 /**
  * @brief 得到 file_system 的根目录 inode
@@ -152,65 +152,52 @@ int writeGdt(Disk* disk, Ext2SuperBlock* super_block, Ext2GroupDescTable* gdt);
 int getRootInode(Ext2FileSystem* file_system, Ext2Inode* inode);
 
 /**
- * @brief 在 file_system 中添加一个 inode
+ * @brief 在 disk 中添加一个 inode
  *
- * @param file_system
+ * @param disk
  * @param inode 待添加的 inode 指针
  * @param location 添加的位置
  * @return int
  */
-int addInode(Ext2FileSystem* file_system, Ext2Inode* inode,
-             Ext2Location* location);
+int addInode(Disk*, Ext2Inode* inode, Ext2Location* location);
 
 /**
  * @brief 给 inode 添加一个目录块信息
  *
- * @param file_system
+ * @param disk
  * @param inode
  * @param entry
  * @return unsigned int
  */
-unsigned int addDirEntry(Ext2FileSystem* file_system, Ext2Inode* inode,
+unsigned int addDirEntry(Disk*disk, Ext2Inode* inode,
                          Ext2DirEntry* entry);
 
 /**
- * @brief 从文件系统中寻找空闲的 inode，并将其设为占用
+ * @brief 从磁盘中寻找空闲的 inode，并将其设为占用
  *
- * @param file_system
- * @param idx 空闲 inode 的序号
+ * @param disk
  * @return Ext2Location 空闲 inode 的绝对位置信息
  */
-Ext2Location getFreeInode(Ext2FileSystem* file_system, unsigned int* idx);
+Ext2Location getFreeInode(Disk*disk);
 
 /**
- * @brief 从文件系统中寻找空闲块，并将其设为占用
+ * @brief 从磁盘中寻找空闲块，并将其设为占用
  *
- * @param file_system
+ * @param disk
  * @return Ext2Location 块的绝对位置信息
  */
-Ext2Location getFreeBlock(Ext2FileSystem* file_system);
+Ext2Location getFreeBlock(Disk*disk);
 
 /**
  * @brief 从 block 数组中找到第 index 处的块
  *
- * @param file_system
+ * @param disk
  * @param index
  * @param block
  * @return Ext2Location 目录块的绝对位置信息
  */
-Ext2Location getDirEntry(Ext2FileSystem* file_system, unsigned int index,
-                          unsigned int block[8]);
-
-/**
- * @brief 将第 inode_idx 个 inode 复制到 inode
- *
- * @param file_system
- * @param inode_idx
- * @param inode
- * @return int
- */
-int copyInode(Ext2FileSystem* file_system, unsigned int inode_idx,
-              Ext2Inode* inode);
+Ext2Location getDirEntry(Disk*disk, unsigned int index,
+                         unsigned int block[8]);
 
 /**
  * @brief 将 disk 初始化文件系统
@@ -268,6 +255,9 @@ int ext2Touch(Ext2FileSystem* file_system, Ext2Inode* current, char* name);
  * @return int
  */
 int ext2Open(Ext2FileSystem* file_system, Ext2Inode* current, char* name);
+
+void setInodeBitmap(Disk* disk, int index, int value);
+void setBlockBitmap(Disk* disk, int index, int value);
 
 /**
  * @brief 将位图 block 位于 index 处的值设为 value

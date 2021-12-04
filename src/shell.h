@@ -21,6 +21,8 @@ typedef struct ShellEntry {
 
 /***************** 全局变量 *****************/
 
+char *path_stack[256];
+static int stack_top = -1;
 static ShellEntry shell_entry;
 int is_mounted = 0;
 
@@ -29,14 +31,19 @@ void exitDisplay() {
   return;
 }
 
-int shell_makedisk(char **args) {
+int getCurrentPath(char *path) {
+  strcpy(path, path_stack[stack_top]);
+  return 1;
+}
+
+int shell_mkdsk(char **args) {
   if (args[1] == NULL) {
     printf("usage: makedisk <disk-name>\n");
     return 1;
   }
 
   Disk disk;
-  makeDisk(&disk, args[1], NUMBER_OF_BLOCKS);
+  makeDisk(&disk, args[1]);
   printf("Successfully make a disk named %s !\n", args[1]);
   return 1;
 }
@@ -112,7 +119,7 @@ int shell_touch(char **args) {
   return 1;
 }
 
-int shell_cd(char**args){
+int shell_cd(char **args) {
   if (is_mounted == 0) {
     printf("The file system isn't mounted!\n");
     return 1;
@@ -122,9 +129,28 @@ int shell_cd(char**args){
     printf("usage: cd <dir-name>\n");
     return 1;
   }
+  if (!strcmp(args[1], "..")) {
+    // 返回上级目录，栈顶减小
+    if (stack_top > 0) stack_top--;
+    ext2Open(&shell_entry.file_system, &shell_entry.current_user, args[1]);
+    return 1;
+  } else if (!strcmp(args[1], ".")) {
+    // 当前目录，不处理
+    return 1;
+  }
 
-  ext2Open(&shell_entry.file_system, &shell_entry.current_user, args[1]);
+  if (ext2Open(&shell_entry.file_system, &shell_entry.current_user, args[1]) ==
+      SUCCESS) {
+    stack_top++;
+    path_stack[stack_top] = malloc(128 * sizeof(char *));
+    strcpy(path_stack[stack_top], args[1]);
+  }
   return 1;
+}
+
+int shell_exit(char **args) {
+  printf("Bye!\n");
+  exit(0);
 }
 
 typedef struct Command {
@@ -133,10 +159,9 @@ typedef struct Command {
 } Command;
 
 static Command commands[] = {
-    {"ls", &shell_ls},         {"makedisk", &shell_makedisk},
-    {"format", &shell_format}, {"mount", &shell_mount},
-    {"mkdir", &shell_mkdir},   {"touch", &shell_touch},
-    {"cd", &shell_cd},
+    {"ls", &shell_ls},       {"mkdsk", &shell_mkdsk}, {"format", &shell_format},
+    {"mount", &shell_mount}, {"mkdir", &shell_mkdir}, {"touch", &shell_touch},
+    {"cd", &shell_cd},       {"exit", &shell_exit},
 };
 
 int shellFuncNum() { return sizeof(commands) / sizeof(Command); }
@@ -211,7 +236,7 @@ int shellLoop() {
 
   do {
     char current_path[32] = {0};
-    // getCurrentPath(current_path);
+    getCurrentPath(current_path);
     printf("%s > ", current_path);
     line = shellReadLine();
     args = shellSplitLine(line);
@@ -225,6 +250,8 @@ int shellLoop() {
 
 void shellStart() {
   printf("Hello! Welcome to Ext2 like file system!\n");
+  stack_top++;
+  path_stack[stack_top] = "/";
   shellLoop();
   exitDisplay();
 }

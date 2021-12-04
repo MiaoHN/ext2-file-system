@@ -15,9 +15,9 @@ typedef struct Disk {
   char path[128];      // 磁盘路径
 
   // 读磁盘
-  int (*write_disk)(struct Disk* disk, int block_idx, void* data);
+  int (*write_disk)(struct Disk* disk, unsigned int block_idx, void* data);
   // 写磁盘
-  int (*read_disk)(struct Disk* disk, int block_idx, void* data);
+  int (*read_disk)(struct Disk* disk, unsigned int block_idx, void* data);
 } Disk;
 
 /**
@@ -28,7 +28,7 @@ typedef struct Disk {
  * @param data 数据指针
  * @return int
  */
-int writeDisk(Disk* disk, int block_idx, void* data);
+int writeDisk(Disk* disk, unsigned int block_idx, void* data);
 
 /**
  * @brief 将 disk 的第 block_idx 个块的内容读到数据指针 data 中
@@ -38,7 +38,7 @@ int writeDisk(Disk* disk, int block_idx, void* data);
  * @param data 数据指针
  * @return int
  */
-int readDisk(Disk* disk, int block_idx, void* data);
+int readDisk(Disk* disk, unsigned int block_idx, void* data);
 
 /**
  * @brief 从路径初始化一个磁盘文件
@@ -56,10 +56,9 @@ int readDisk(Disk* disk, int block_idx, void* data);
  *
  * @param disk 磁盘指针
  * @param path 磁盘路径
- * @param number_of_blocks 块数量
  * @return int
  */
-int makeDisk(Disk* disk, const char* path, int number_of_blocks);
+int makeDisk(Disk* disk, const char* path);
 
 /**
  * @brief 从路径 path 加载一个 disk

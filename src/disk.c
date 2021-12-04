@@ -1,6 +1,6 @@
 #include "disk.h"
 
-int makeDisk(Disk* disk, const char* path, int number_of_blocks) {
+int makeDisk(Disk* disk, const char* path) {
   if (disk == NULL) {
     disk = malloc(sizeof(Disk));
   }
@@ -35,7 +35,7 @@ int loadDisk(Disk* disk, const char* path) {
   return SUCCESS;
 }
 
-int writeDisk(Disk* disk, int block_idx, void* data) {
+int writeDisk(Disk* disk, unsigned int block_idx, void* data) {
   assert(data != NULL);
   if (block_idx >= NUMBER_OF_BLOCKS) {
     printf("failed to write\n");
@@ -51,7 +51,7 @@ int writeDisk(Disk* disk, int block_idx, void* data) {
   return SUCCESS;
 }
 
-int readDisk(Disk* disk, int block_idx, void* data) {
+int readDisk(Disk* disk, unsigned int block_idx, void* data) {
   assert(data != NULL);
   if (block_idx >= NUMBER_OF_BLOCKS) {
     printf("failed to read\n");
