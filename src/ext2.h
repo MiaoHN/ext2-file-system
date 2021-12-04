@@ -161,6 +161,8 @@ int getRootInode(Ext2FileSystem* file_system, Ext2Inode* inode);
  */
 int addInode(Disk*, Ext2Inode* inode, Ext2Location* location);
 
+int getInode(Disk*disk, unsigned int index, Ext2Inode*inode);
+
 /**
  * @brief 给 inode 添加一个目录块信息
  *
@@ -256,8 +258,14 @@ int ext2Touch(Ext2FileSystem* file_system, Ext2Inode* current, char* name);
  */
 int ext2Open(Ext2FileSystem* file_system, Ext2Inode* current, char* name);
 
-void setInodeBitmap(Disk* disk, int index, int value);
-void setBlockBitmap(Disk* disk, int index, int value);
+void getInodeBitmap(Disk *disk, BYTE bitmap[BLOCK_SIZE]);
+void getBlockBitmap(Disk *disk, BYTE bitmap[BLOCK_SIZE]);
+
+void setInodeBitmap(Disk *disk, unsigned int index, int value);
+void setBlockBitmap(Disk *disk, unsigned int index, int value);
+
+void writeInodeBitmap(Disk* disk, BYTE bitmap[BLOCK_SIZE]);
+void writeBlockBitmap(Disk* disk, BYTE bitmap[BLOCK_SIZE]);
 
 /**
  * @brief 将位图 block 位于 index 处的值设为 value

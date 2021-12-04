@@ -177,6 +177,18 @@ int addInode(Disk *disk, Ext2Inode *inode, Ext2Location *location) {
   return SUCCESS;
 }
 
+int getInode(Disk *disk, unsigned int index, Ext2Inode *inode) {
+  BYTE block[BLOCK_SIZE];
+  memset(block, 0, BLOCK_SIZE);
+  memset(inode, 0, INODE_SIZE);
+
+  unsigned int inode_block = INODE_TABLE_BASE + index / INODES_PER_BLOCK;
+  unsigned int inode_offset = (index % INODES_PER_BLOCK) * INODE_SIZE;
+
+  readBlock(disk, inode_block, block);
+  memcpy(inode, block + inode_offset, INODE_SIZE);
+}
+
 Ext2Location getFreeInode(Disk *disk) {
   Ext2Location location;
   Ext2SuperBlock super_block;
@@ -407,7 +419,8 @@ int ext2Mkdir(Ext2FileSystem *file_system, Ext2Inode *current, char *name) {
   // 查询是否已经存在同名文件
   unsigned int items = current->size / DIR_SIZE;
   for (unsigned int i = 0; i < items; i++) {
-    Ext2Location dir_location = getDirEntry(file_system->disk, i, current->block);
+    Ext2Location dir_location =
+        getDirEntry(file_system->disk, i, current->block);
     readBlock(file_system->disk, dir_location.block_idx, block);
     memcpy(entry, block + dir_location.offset, DIR_SIZE);
     if (!strcmp(entry->name, name)) {
@@ -482,7 +495,8 @@ int ext2Touch(Ext2FileSystem *file_system, Ext2Inode *current, char *name) {
   // 查询是否已经存在同名文件
   unsigned int items = current->size / DIR_SIZE;
   for (int i = 0; i < items; i++) {
-    Ext2Location dir_location = getDirEntry(file_system->disk, i, current->block);
+    Ext2Location dir_location =
+        getDirEntry(file_system->disk, i, current->block);
     readBlock(file_system->disk, dir_location.block_idx, block);
     memcpy(entry, block + dir_location.offset, DIR_SIZE);
     if (!strcmp(entry->name, name)) {
@@ -523,7 +537,8 @@ int ext2Open(Ext2FileSystem *file_system, Ext2Inode *current, char *name) {
   BYTE block[BLOCK_SIZE];
   unsigned int items = current->size / DIR_SIZE;
   for (int i = 0; i < items; i++) {
-    Ext2Location dir_location = getDirEntry(file_system->disk, i, current->block);
+    Ext2Location dir_location =
+        getDirEntry(file_system->disk, i, current->block);
     readBlock(file_system->disk, dir_location.block_idx, block);
     memcpy(&entry, block + dir_location.offset, DIR_SIZE);
     if (!strcmp(entry.name, name)) {
@@ -543,20 +558,36 @@ int ext2Open(Ext2FileSystem *file_system, Ext2Inode *current, char *name) {
   return FAILURE;
 }
 
-void setInodeBitmap(Disk *disk, int index, int value) {
-  BYTE block[BLOCK_SIZE];
-  memset(block, 0, BLOCK_SIZE);
-  readBlock(disk, INODE_BITMAP_BASE, block);
-  setBit(block, index, value);
-  writeBlock(disk, INODE_BITMAP_BASE, block);
+void getInodeBitmap(Disk *disk, BYTE bitmap[BLOCK_SIZE]) {
+  memset(bitmap, 0, BLOCK_SIZE);
+  readBlock(disk, INODE_BITMAP_BASE, bitmap);
 }
 
-void setBlockBitmap(Disk *disk, int index, int value) {
-  BYTE block[BLOCK_SIZE];
-  memset(block, 0, BLOCK_SIZE);
-  readBlock(disk, BLOCK_BITMAP_BASE, block);
-  setBit(block, index, value);
-  writeBlock(disk, BLOCK_BITMAP_BASE, block);
+void getBlockBitmap(Disk *disk, BYTE bitmap[BLOCK_SIZE]) {
+  memset(bitmap, 0, BLOCK_SIZE);
+  readBlock(disk, BLOCK_BITMAP_BASE, bitmap);
+}
+
+void setInodeBitmap(Disk *disk, unsigned int index, int value) {
+  BYTE bitmap[BLOCK_SIZE];
+  getInodeBitmap(disk, bitmap);
+  setBit(bitmap, index, value);
+  writeInodeBitmap(disk, bitmap);
+}
+
+void setBlockBitmap(Disk *disk, unsigned int index, int value) {
+  BYTE bitmap[BLOCK_SIZE];
+  getBlockBitmap(disk, bitmap);
+  setBit(bitmap, index, value);
+  writeBlockBitmap(disk, bitmap);
+}
+
+void writeInodeBitmap(Disk *disk, BYTE bitmap[BLOCK_SIZE]) {
+  writeBlock(disk, INODE_BITMAP_BASE, bitmap);
+}
+
+void writeBlockBitmap(Disk *disk, BYTE bitmap[BLOCK_SIZE]) {
+  writeBlock(disk, BLOCK_BITMAP_BASE, bitmap);
 }
 
 int setBit(BYTE *block, int index, int value) {
