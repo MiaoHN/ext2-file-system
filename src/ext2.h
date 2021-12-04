@@ -142,14 +142,7 @@ int writeGdt(Disk* disk, Ext2GroupDescTable* gdt);
 int getSuperBlock(Disk* disk, Ext2SuperBlock* super_block);
 int getGdt(Disk* disk, Ext2GroupDescTable* gdt);
 
-/**
- * @brief 得到 file_system 的根目录 inode
- *
- * @param file_system
- * @param inode
- * @return int
- */
-int getRootInode(Ext2FileSystem* file_system, Ext2Inode* inode);
+void getRootInode(Disk* disk, Ext2Inode* inode);
 
 /**
  * @brief 在 disk 中添加一个 inode
@@ -161,7 +154,7 @@ int getRootInode(Ext2FileSystem* file_system, Ext2Inode* inode);
  */
 int addInode(Disk*, Ext2Inode* inode, Ext2Location* location);
 
-int getInode(Disk*disk, unsigned int index, Ext2Inode*inode);
+int getInode(Disk* disk, unsigned int index, Ext2Inode* inode);
 
 /**
  * @brief 给 inode 添加一个目录块信息
@@ -171,8 +164,7 @@ int getInode(Disk*disk, unsigned int index, Ext2Inode*inode);
  * @param entry
  * @return unsigned int
  */
-unsigned int addDirEntry(Disk*disk, Ext2Inode* inode,
-                         Ext2DirEntry* entry);
+unsigned int addDirEntry(Disk* disk, Ext2Inode* inode, Ext2DirEntry* entry);
 
 /**
  * @brief 从磁盘中寻找空闲的 inode，并将其设为占用
@@ -180,7 +172,7 @@ unsigned int addDirEntry(Disk*disk, Ext2Inode* inode,
  * @param disk
  * @return Ext2Location 空闲 inode 的绝对位置信息
  */
-Ext2Location getFreeInode(Disk*disk);
+Ext2Location getFreeInode(Disk* disk);
 
 /**
  * @brief 从磁盘中寻找空闲块，并将其设为占用
@@ -188,7 +180,7 @@ Ext2Location getFreeInode(Disk*disk);
  * @param disk
  * @return Ext2Location 块的绝对位置信息
  */
-Ext2Location getFreeBlock(Disk*disk);
+Ext2Location getFreeBlock(Disk* disk);
 
 /**
  * @brief 从 block 数组中找到第 index 处的块
@@ -198,8 +190,7 @@ Ext2Location getFreeBlock(Disk*disk);
  * @param block
  * @return Ext2Location 目录块的绝对位置信息
  */
-Ext2Location getDirEntry(Disk*disk, unsigned int index,
-                         unsigned int block[8]);
+Ext2Location getDirEntry(Disk* disk, unsigned int index, unsigned int block[8]);
 
 /**
  * @brief 将 disk 初始化文件系统
@@ -207,7 +198,7 @@ Ext2Location getDirEntry(Disk*disk, unsigned int index,
  * @param disk
  * @return int
  */
-int format(Disk* disk);
+int ext2Format(Disk* disk);
 
 /**
  * @brief 列出 current 所处位置的所有文件和目录
@@ -258,11 +249,11 @@ int ext2Touch(Ext2FileSystem* file_system, Ext2Inode* current, char* name);
  */
 int ext2Open(Ext2FileSystem* file_system, Ext2Inode* current, char* name);
 
-void getInodeBitmap(Disk *disk, BYTE bitmap[BLOCK_SIZE]);
-void getBlockBitmap(Disk *disk, BYTE bitmap[BLOCK_SIZE]);
+void getInodeBitmap(Disk* disk, BYTE bitmap[BLOCK_SIZE]);
+void getBlockBitmap(Disk* disk, BYTE bitmap[BLOCK_SIZE]);
 
-void setInodeBitmap(Disk *disk, unsigned int index, int value);
-void setBlockBitmap(Disk *disk, unsigned int index, int value);
+void setInodeBitmap(Disk* disk, unsigned int index, int value);
+void setBlockBitmap(Disk* disk, unsigned int index, int value);
 
 void writeInodeBitmap(Disk* disk, BYTE bitmap[BLOCK_SIZE]);
 void writeBlockBitmap(Disk* disk, BYTE bitmap[BLOCK_SIZE]);
@@ -275,7 +266,7 @@ void writeBlockBitmap(Disk* disk, BYTE bitmap[BLOCK_SIZE]);
  * @param value
  * @return int
  */
-int setBit(BYTE* block, int index, int value);
+int setBit(BYTE bitmap[BLOCK_SIZE], int index, int value);
 
 /**
  * @brief 得到从左往右第一个 0 的位置

@@ -55,7 +55,7 @@ int shell_format(char **args) {
   }
   Disk disk;
   loadDisk(&disk, args[1]);
-  format(&disk);
+  ext2Format(&disk);
 
   printf("Successfully format disk %s to Ext2\n", args[1]);
   return 1;

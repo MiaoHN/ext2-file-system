@@ -1,6 +1,6 @@
 #include "ext2.h"
 
-int format(Disk *disk) {
+int ext2Format(Disk *disk) {
   assert(disk != NULL);
   Ext2SuperBlock super_block;
   Ext2GroupDescTable gdt;
@@ -50,19 +50,23 @@ int initGdt(Ext2GroupDescTable *gdt, Ext2SuperBlock *super_block) {
 }
 
 int initInodeBitmap(Disk *disk) {
-  BYTE block[BLOCK_SIZE];
-  memset(block, 0, BLOCK_SIZE);
+  BYTE bitmap[BLOCK_SIZE];
+  memset(bitmap, 0, BLOCK_SIZE);
 
-  writeBlock(disk, INODE_BITMAP_BASE, block);
+  writeInodeBitmap(disk, bitmap);
 
   return SUCCESS;
 }
 
 int initBlockBitmap(Disk *disk) {
-  BYTE block[BLOCK_SIZE];
-  memset(block, 0, BLOCK_SIZE);
+  BYTE bitmap[BLOCK_SIZE];
+  memset(bitmap, 0, BLOCK_SIZE);
 
-  writeBlock(disk, BLOCK_BITMAP_BASE, block);
+  for (int i = 0; i < DATA_BLOCK_BASE; i++) {
+    setBit(bitmap, i, 1);
+  }
+
+  writeBlockBitmap(disk, bitmap);
 
   return SUCCESS;
 }
@@ -71,23 +75,32 @@ int initRootDir(Disk *disk) {
   BYTE block[BLOCK_SIZE];
   memset(block, 0, BLOCK_SIZE);
 
+  // 首先添加一个 inode
+  Ext2Inode root_inode;
+  root_inode.mode = 0x1FF | 0x4000;
+  root_inode.size = 0;  // 根目录有两个初始文件
+  root_inode.blocks = 0;
+  // inode 所处的位置
+  Ext2Location root_inode_location;
+  root_inode_location.block_idx = INODE_TABLE_BASE;
+  root_inode_location.offset = 0;
+
   // 添加根目录，根目录的上级目录还是自己
   Ext2DirEntry entry;
   strcpy(entry.name, "..");
   entry.name_len = strlen("..");
   entry.file_type = DIR_TYPE;
   entry.inode = 0;
-  memcpy(block, &entry, DIR_SIZE);
+  addDirEntry(disk, &root_inode, &entry);
 
   // 根目录的指向自己的目录块
   strcpy(entry.name, ".");
   entry.name_len = strlen(".");
   entry.file_type = DIR_TYPE;
   entry.inode = 0;
-  memcpy(block + DIR_SIZE, &entry, DIR_SIZE);
+  addDirEntry(disk, &root_inode, &entry);
 
-  // 将根目录写入第一个数据块中
-  writeBlock(disk, DATA_BLOCK_BASE, block);
+  addInode(disk, &root_inode, &root_inode_location);
 
   // 修改 Super Block 的值
   Ext2SuperBlock super_block;
@@ -104,20 +117,10 @@ int initRootDir(Disk *disk) {
   writeGdt(disk, &gdt);
 
   // 修改 block 位图
-  setBlockBitmap(disk, 0, 1);
+  setBlockBitmap(disk, DATA_BLOCK_BASE, 1);
 
   // 修改 inode 位图
   setInodeBitmap(disk, 0, 1);
-
-  // 添加一个 inode
-  Ext2Inode inode;
-  inode.mode = 0x1FF | 0x4000;
-  inode.size = 64;  // 根目录有两个初始文件
-  inode.blocks = 1;
-  inode.block[0] = DATA_BLOCK_BASE;
-  memset(block, 0, BLOCK_SIZE);
-  memcpy(block, &inode, INODE_SIZE);
-  writeBlock(disk, INODE_TABLE_BASE, block);
 
   return SUCCESS;
 }
@@ -160,13 +163,7 @@ int getGdt(Disk *disk, Ext2GroupDescTable *gdt) {
   return SUCCESS;
 }
 
-int getRootInode(Ext2FileSystem *file_system, Ext2Inode *inode) {
-  BYTE block[BLOCK_SIZE];
-  assert(file_system->disk != NULL);
-  readBlock(file_system->disk, INODE_TABLE_BASE, block);
-  memcpy(inode, block, INODE_SIZE);
-  return SUCCESS;
-}
+void getRootInode(Disk *disk, Ext2Inode *inode) { getInode(disk, 0, inode); }
 
 int addInode(Disk *disk, Ext2Inode *inode, Ext2Location *location) {
   BYTE block[BLOCK_SIZE];
@@ -230,15 +227,15 @@ Ext2Location getFreeBlock(Disk *disk) {
   Ext2SuperBlock super_block;
   Ext2GroupDescTable gdt;
   // 读取 block 位图
-  BYTE block[BLOCK_SIZE];
-  readBlock(disk, BLOCK_BITMAP_BASE, block);
+  BYTE bitmap[BLOCK_SIZE];
+  getBlockBitmap(disk, bitmap);
   for (int i = 0; i < NUMBER_OF_BLOCKS / 8; i++) {
-    if (block[i] != 0xff) {
+    if (bitmap[i] != 0xff) {
       // 找到可用空位
-      unsigned int offset = getOffset(block[i]);
-      block[i] |= (0x80 >> offset);
+      unsigned int offset = getOffset(bitmap[i]);
+      bitmap[i] |= (0x80 >> offset);
       // 更新 block 位图
-      writeBlock(disk, BLOCK_BITMAP_BASE, block);
+      writeBlockBitmap(disk, bitmap);
       // 修改文件系统信息
       // 更新 Super Block
       getSuperBlock(disk, &super_block);
@@ -307,12 +304,11 @@ unsigned int addDirEntry(Disk *disk, Ext2Inode *inode, Ext2DirEntry *entry) {
   unsigned int dir_offset = total % DIRS_PER_BLOCK;
   if (dir_block < 6) {
     // 直接索引
-    if (dir_offset == 0) {
+    if (dir_offset == 0 && dir_block != 0) {
       // 刚好在上一个 block 中
       dir_block -= 1;
-    }
-    // 如果没有创建新的 block
-    if (inode->blocks < dir_block + 1) {
+    } else if (inode->blocks < dir_block + 1) {
+      // 如果没有创建新的 block
       Ext2Location block_location = getFreeBlock(disk);
       inode->block[dir_block] = block_location.block_idx;
       inode->blocks++;
@@ -392,8 +388,11 @@ int ext2Ls(Ext2FileSystem *file_system, Ext2Inode *current) {
     memcpy(&dir, block + location.offset, DIR_SIZE);
     if (dir.file_type == EXT2_DIR) {
       printf("Dir\t\t\t");
-    } else {
+    } else if (dir.file_type == EXT2_FILE) {
       printf("File\t\t\t");
+    } else {
+      printf("error occurred!\n");
+      return FAILURE;
     }
     printf("%s\t\t%d\n", dir.name, dir.inode);
   }
@@ -407,7 +406,7 @@ int ext2Mount(Ext2FileSystem *file_system, Ext2Inode *current, char *path) {
   // 挂载磁盘
   loadDisk(file_system->disk, path);
   // 得到根路径
-  getRootInode(file_system, current);
+  getRootInode(file_system->disk, current);
   return SUCCESS;
 }
 
@@ -590,14 +589,14 @@ void writeBlockBitmap(Disk *disk, BYTE bitmap[BLOCK_SIZE]) {
   writeBlock(disk, BLOCK_BITMAP_BASE, bitmap);
 }
 
-int setBit(BYTE *block, int index, int value) {
+int setBit(BYTE bitmap[BLOCK_SIZE], int index, int value) {
   int byte = index / 8;
   int offset = index % 8;
 
   if (value == 0)
-    block[byte] ^= (0x1 << (7 - offset));
+    bitmap[byte] ^= (0x1 << (7 - offset));
   else
-    block[byte] |= (0x1 << (7 - offset));
+    bitmap[byte] |= (0x1 << (7 - offset));
   return SUCCESS;
 }
 
