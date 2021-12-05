@@ -90,6 +90,7 @@ int initRootDir(Disk *disk) {
   strcpy(entry.name, "..");
   entry.name_len = strlen("..");
   entry.file_type = DIR_TYPE;
+  entry.rec_len = 2;
   entry.inode = 0;
   addDirEntry(disk, &root_inode, &entry);
 
@@ -97,6 +98,7 @@ int initRootDir(Disk *disk) {
   strcpy(entry.name, ".");
   entry.name_len = strlen(".");
   entry.file_type = DIR_TYPE;
+  entry.rec_len = 2;
   entry.inode = 0;
   addDirEntry(disk, &root_inode, &entry);
 
@@ -198,7 +200,7 @@ int getInode(Disk *disk, unsigned int index, Ext2Inode *inode) {
   unsigned int inode_offset = (index % INODES_PER_BLOCK) * INODE_SIZE;
 
   readBlock(disk, inode_block, block);
-  memcpy(inode, block + inode_offset, INODE_SIZE);
+  memcpy(inode, block + inode_offset, INODE_SIZE);  // ???
   return SUCCESS;
 }
 
@@ -489,7 +491,6 @@ int ext2Mkdir(Ext2FileSystem *file_system, Ext2Inode *current, char *name) {
   entry.file_type = EXT2_DIR;
   entry.rec_len = 2;
   addDirEntry(file_system->disk, current, &entry);
-  // ! 
   // 获得当前目录的 Dir Entry
   Ext2DirEntry parent_entry;
   getCurrentEntry(file_system->disk, current, &parent_entry);
@@ -519,52 +520,60 @@ int ext2Mkdir(Ext2FileSystem *file_system, Ext2Inode *current, char *name) {
   Ext2Location parent_location;
   parent_location.block_idx =
       INODE_TABLE_BASE + parent_inode_index / INODES_PER_BLOCK;
-  parent_location.offset = parent_inode_index % INODES_PER_BLOCK;
+  parent_location.offset = (parent_inode_index % INODES_PER_BLOCK) * INODE_SIZE;
   writeInode(file_system->disk, current, &parent_location);
 
   return SUCCESS;
 }
 
 int ext2Touch(Ext2FileSystem *file_system, Ext2Inode *current, char *name) {
-  Ext2DirEntry *entry = (Ext2DirEntry *)malloc(DIR_SIZE);
-  BYTE block[BLOCK_SIZE];
-
   // 查询是否已经存在同名文件
+  Ext2DirEntry entry;
   unsigned int items = current->size / DIR_SIZE;
-  for (int i = 0; i < items; i++) {
-    Ext2Location dir_location =
-        getDirEntryLocation(file_system->disk, i, current);
-    readBlock(file_system->disk, dir_location.block_idx, block);
-    memcpy(entry, block + dir_location.offset, DIR_SIZE);
-    if (!strcmp(entry->name, name)) {
+  for (unsigned int i = 2; i < items; i++) {
+    getDirEntry(file_system->disk, i, current, &entry);
+    if (!strcmp(entry.name, name)) {
       // 存在同名文件
       printf("There are already a file or directory named %s\n", name);
       return FAILURE;
     }
   }
 
-  // 没有同名文件或文件夹，新建一个 inode 和对应的 data block
+  // 没有同名文件或文件夹，新建一个 inode
   Ext2Location inode_location = getFreeInode(file_system->disk);
+  // 空闲 inode 的序号
   unsigned int inode_idx =
       (inode_location.block_idx - INODE_TABLE_BASE) * INODES_PER_BLOCK +
       inode_location.offset / INODE_SIZE;
 
-  // 写入 Dir Entry
-  strcpy(entry->name, name);
-  entry->name_len = strlen(name);
-  entry->file_type = EXT2_FILE;
-  entry->inode = inode_idx;
-  entry->rec_len = 0;
-  addDirEntry(file_system->disk, current, entry);
+  // 将新的目录项添加到父目录下
+  strcpy(entry.name, name);
+  entry.inode = inode_idx;
+  entry.name_len = strlen(name);
+  entry.file_type = EXT2_FILE;
+  entry.rec_len = 0;
+  addDirEntry(file_system->disk, current, &entry);
+  // 获得当前目录的 Dir Entry
+  Ext2DirEntry parent_entry;
+  getCurrentEntry(file_system->disk, current, &parent_entry);
+  parent_entry.rec_len++;
+  writeCurrentEntry(file_system->disk, current, &parent_entry);
 
-  // 写入 inode
+  // 写入新目录的 inode
   Ext2Inode new_inode;
   memset(&new_inode, 0, INODE_SIZE);
   new_inode.mode = 2;
-  new_inode.blocks = 1;
-  new_inode.size = 0;  // 文件暂无内容
-  memset(new_inode.block, 0, sizeof(new_inode.block));
+  new_inode.blocks = 0;
+  new_inode.size = 0;
   writeInode(file_system->disk, &new_inode, &inode_location);
+
+  // 更新 current
+  unsigned int parent_inode_index = parent_entry.inode;
+  Ext2Location parent_location;
+  parent_location.block_idx =
+      INODE_TABLE_BASE + parent_inode_index / INODES_PER_BLOCK;
+  parent_location.offset = (parent_inode_index % INODES_PER_BLOCK) * INODE_SIZE;
+  writeInode(file_system->disk, current, &parent_location);
 
   return SUCCESS;
 }
@@ -586,6 +595,9 @@ int ext2Open(Ext2FileSystem *file_system, Ext2Inode *current, char *name) {
         printf("It's not a directory!\n");
         return FAILURE;
       }
+      Ext2Inode root_inode;
+      readBlock(file_system->disk, INODE_TABLE_BASE, block);
+      memcpy(&root_inode, block, INODE_SIZE);
       getInode(file_system->disk, entry.inode, current);
       return SUCCESS;
     }
