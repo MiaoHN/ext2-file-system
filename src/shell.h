@@ -78,6 +78,13 @@ int shell_mount(char **args) {
   return 1;
 }
 
+int shell_umount(char **args) {
+  is_mounted = 0;
+  stack_top = 0;
+  path_stack[stack_top] = "/";
+  return 1;
+}
+
 int shell_ls(char **args) {
   if (is_mounted == 0) {
     printf("The file system isn't mounted!\n");
@@ -161,7 +168,7 @@ typedef struct Command {
 static Command commands[] = {
     {"ls", &shell_ls},       {"mkdsk", &shell_mkdsk}, {"format", &shell_format},
     {"mount", &shell_mount}, {"mkdir", &shell_mkdir}, {"touch", &shell_touch},
-    {"cd", &shell_cd},       {"exit", &shell_exit},
+    {"cd", &shell_cd},       {"exit", &shell_exit},   {"umount", &shell_umount},
 };
 
 int shellFuncNum() { return sizeof(commands) / sizeof(Command); }
