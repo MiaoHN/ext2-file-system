@@ -146,11 +146,11 @@ void getRootInode(Disk* disk, Ext2Inode* inode);
 
 /**
  * @brief Get the Inode Index object
- * 
- * @param disk 
- * @param inode 
+ *
+ * @param disk
+ * @param inode
  */
-unsigned int getInodeIndex(Disk*disk, Ext2Inode* inode);
+unsigned int getInodeIndex(Disk* disk, Ext2Inode* inode);
 
 /**
  * @brief 在 disk 中添加一个 inode
@@ -197,15 +197,18 @@ Ext2Location getFreeBlock(Disk* disk);
  * @param index
  * @return Ext2Location 目录块的绝对位置信息
  */
-Ext2Location getDirEntryLocation(Disk* disk, unsigned int index, Ext2Inode*parent);
+Ext2Location getDirEntryLocation(Disk* disk, unsigned int index,
+                                 Ext2Inode* parent);
 
-int getDirEntry(Disk*disk, unsigned int index, Ext2Inode*parent, Ext2DirEntry*entry);
-int writeDirEntry(Disk*disk, unsigned int index, Ext2Inode*parent, Ext2DirEntry*entry);
+int getDirEntry(Disk* disk, unsigned int index, Ext2Inode* parent,
+                Ext2DirEntry* entry);
+int writeDirEntry(Disk* disk, unsigned int index, Ext2Inode* parent,
+                  Ext2DirEntry* entry);
 
-int getCurrentEntry(Disk*disk, Ext2Inode*inode, Ext2DirEntry*entry);
-int getParentEntry(Disk*disk, Ext2Inode*inode, Ext2DirEntry*entry);
-int writeCurrentEntry(Disk*disk, Ext2Inode*inode, Ext2DirEntry*entry);
-int writeParentEntry(Disk*disk, Ext2Inode*inode, Ext2DirEntry*entry);
+int getCurrentEntry(Disk* disk, Ext2Inode* inode, Ext2DirEntry* entry);
+int getParentEntry(Disk* disk, Ext2Inode* inode, Ext2DirEntry* entry);
+int writeCurrentEntry(Disk* disk, Ext2Inode* inode, Ext2DirEntry* entry);
+int writeParentEntry(Disk* disk, Ext2Inode* inode, Ext2DirEntry* entry);
 
 /**
  * @brief 将 disk 初始化文件系统
@@ -253,6 +256,13 @@ int ext2Mkdir(Ext2FileSystem* file_system, Ext2Inode* current, char* name);
  * @return int
  */
 int ext2Touch(Ext2FileSystem* file_system, Ext2Inode* current, char* name);
+
+int ext2Rmdir(Ext2FileSystem* file_system, Ext2Inode* current, char* name);
+
+int ext2Rm(Ext2FileSystem* file_system, Ext2Inode* current, char* name);
+
+int deleteDirEntry(Ext2FileSystem* file_system, Ext2Inode* current, char* name,
+                   int type);
 
 /**
  * @brief 从 current 处打开名为 name 的路径

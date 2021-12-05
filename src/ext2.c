@@ -578,6 +578,39 @@ int ext2Touch(Ext2FileSystem *file_system, Ext2Inode *current, char *name) {
   return SUCCESS;
 }
 
+int ext2Rmdir(Ext2FileSystem *file_system, Ext2Inode *current, char *name) {
+  return deleteDirEntry(file_system, current, EXT2_DIR);
+}
+
+int ext2Rm(Ext2FileSystem *file_system, Ext2Inode *current, char *name) {
+  return deleteDirEntry(file_system, current, EXT2_FILE);
+}
+
+int deleteDirEntry(Ext2FileSystem *file_system, Ext2Inode *current, char *name,
+                   int type) {
+  // 寻找文件
+  Ext2DirEntry entry;
+  unsigned int items = current->size / DIR_SIZE;
+  for (unsigned int i = 2; i < items; i++) {
+    getDirEntry(file_system->disk, i, current, &entry);
+    if (!strcmp(entry.name, name)) {
+      if (entry.file_type != type) {
+        // 如果是文件则报错退出
+        // TODO 修改输出样式
+        printf("This is a file, please use \"rm\" to delete!\n");
+        return FAILURE;
+      }
+      // 找到目录的 Dir Entry，开始删除
+      // TODO
+      return SUCCESS;
+    }
+  }
+  // 没有找到
+  // TODO 修改输出样式
+  printf("The directory named \"%d\" isn't exist!\n", name);
+  return FAILURE;
+}
+
 int ext2Open(Ext2FileSystem *file_system, Ext2Inode *current, char *name) {
   Ext2DirEntry entry;
   BYTE block[BLOCK_SIZE];
