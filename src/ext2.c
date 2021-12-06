@@ -805,6 +805,12 @@ int ext2Write(Ext2FileSystem *file_system, Ext2Inode *current, char *name) {
     }
   }
 
+  if (strcmp(entry.name, name)) {
+    // 文件不存在
+    printf("The file named \"%s\" isn't exist\n", name);
+    return FAILURE;
+  }
+
   // 找到 entry 后
   Ext2Inode inode;
   getInode(file_system->disk, entry.inode, &inode);
@@ -832,6 +838,12 @@ int ext2Cat(Ext2FileSystem *file_system, Ext2Inode *current, char *name) {
       }
       break;
     }
+  }
+
+  if (strcmp(entry.name, name)) {
+    // 文件不存在
+    printf("The file named \"%s\" isn't exist\n", name);
+    return FAILURE;
   }
 
   // 找到 entry 后
