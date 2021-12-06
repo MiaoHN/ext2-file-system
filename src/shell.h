@@ -155,6 +155,36 @@ int shell_cd(char **args) {
   return 1;
 }
 
+int shell_rm(char **args) {
+  if (is_mounted == 0) {
+    printf("The file system isn't mounted!\n");
+    return 1;
+  }
+  if (args[1] == NULL) {
+    printf("usage: rm <file-name>\n");
+    return 1;
+  }
+
+  ext2Rm(&shell_entry.file_system, &shell_entry.current_user, args[1]);
+
+  return 1;
+}
+
+int shell_rmdir(char **args) {
+  if (is_mounted == 0) {
+    printf("The file system isn't mounted!\n");
+    return 1;
+  }
+  if (args[1] == NULL) {
+    printf("usage: rm <file-name>\n");
+    return 1;
+  }
+
+  ext2Rmdir(&shell_entry.file_system, &shell_entry.current_user, args[1]);
+
+  return 1;
+}
+
 int shell_exit(char **args) {
   printf("Bye!\n");
   exit(0);
@@ -169,6 +199,7 @@ static Command commands[] = {
     {"ls", &shell_ls},       {"mkdsk", &shell_mkdsk}, {"format", &shell_format},
     {"mount", &shell_mount}, {"mkdir", &shell_mkdir}, {"touch", &shell_touch},
     {"cd", &shell_cd},       {"exit", &shell_exit},   {"umount", &shell_umount},
+    {"rmdir", &shell_rmdir}, {"rm", &shell_rm},
 };
 
 int shellFuncNum() { return sizeof(commands) / sizeof(Command); }

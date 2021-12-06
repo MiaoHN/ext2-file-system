@@ -579,15 +579,21 @@ int ext2Touch(Ext2FileSystem *file_system, Ext2Inode *current, char *name) {
 }
 
 int ext2Rmdir(Ext2FileSystem *file_system, Ext2Inode *current, char *name) {
-  return deleteDirEntry(file_system, current, EXT2_DIR);
+  return deleteDirEntry(file_system, current, name, EXT2_DIR);
 }
 
 int ext2Rm(Ext2FileSystem *file_system, Ext2Inode *current, char *name) {
-  return deleteDirEntry(file_system, current, EXT2_FILE);
+  return deleteDirEntry(file_system, current, name, EXT2_FILE);
 }
 
 int deleteDirEntry(Ext2FileSystem *file_system, Ext2Inode *current, char *name,
                    int type) {
+  BYTE block[BLOCK_SIZE];
+  // 无法删除上级目录和当前目录
+  if (!strcmp(name, ".") || !strcmp(name, "..")) {
+    printf("Error : can't delete current work directory!\n");
+    return FAILURE;
+  }
   // 寻找文件
   Ext2DirEntry entry;
   unsigned int items = current->size / DIR_SIZE;
@@ -595,20 +601,92 @@ int deleteDirEntry(Ext2FileSystem *file_system, Ext2Inode *current, char *name,
     getDirEntry(file_system->disk, i, current, &entry);
     if (!strcmp(entry.name, name)) {
       if (entry.file_type != type) {
-        // 如果是文件则报错退出
-        // TODO 修改输出样式
-        printf("This is a file, please use \"rm\" to delete!\n");
-        return FAILURE;
+        switch (entry.file_type) {
+          case EXT2_DIR:
+            printf("This is directory, please use \"rmdir\" to delete!\n");
+            return FAILURE;
+          case EXT2_FILE:
+            printf("This is a file, please use \"rm\" to delete!\n");
+            return FAILURE;
+          default:
+            printf("Error : Invalid file type!\n");
+            return FAILURE;
+        }
       }
       // 找到目录的 Dir Entry，开始删除
-      // TODO
+      // * 先处理当面目录项信息
+      Ext2DirEntry current_entry;
+      Ext2DirEntry entry_last;
+      Ext2Location entry_last_location;
+      getCurrentEntry(file_system->disk, current, &current_entry);
+      entry_last_location = getDirEntryLocation(
+          file_system->disk, current->size / DIR_SIZE - 1, current);
+      if (entry_last_location.offset == 0) {
+        // 如果最后一块在新块的末尾，则删除这个块
+        // 从 bitmap 中删除
+        setBlockBitmap(file_system->disk, entry_last_location.block_idx, 0);
+        current->blocks--;
+      } else {
+        readBlock(file_system->disk, entry_last_location.block_idx, block);
+        memcpy(&entry_last, block + entry_last_location.offset, DIR_SIZE);
+        if (!strcmp(entry_last.name, name)) {
+          // 最后一块就是被删除的文件，删除这个块
+          setBlockBitmap(file_system->disk, entry_last_location.block_idx, 0);
+          current->blocks--;
+          current->size -= DIR_SIZE;
+        } else {
+          // 找到被删除文件位置并用 block_last 覆盖
+          Ext2Location entry_location =
+              getDirEntryLocation(file_system->disk, i, current);
+          readBlock(file_system->disk, entry_location.block_idx, block);
+          memcpy(block + entry_location.offset, &entry_last, DIR_SIZE);
+          writeBlock(file_system->disk, entry_location.block_idx, block);
+          current->size -= DIR_SIZE;
+        }
+      }
+      writeCurrentEntry(file_system->disk, current, &current_entry);
+      // * 再处理被删除文件的块信息
+      // 先找到 inode
+      Ext2Inode inode_delete;
+      getInode(file_system->disk, entry.inode, &inode_delete);
+      setInodeBitmap(file_system->disk, entry.inode, 0);
+      // 删除 inode 下的所有引用块
+      int items = inode_delete.size / DIR_SIZE;
+      for (int ii = 0; ii < items; ii++) {
+        int index = ii;
+        if (index < 6) {
+          // 直接索引处
+          setBlockBitmap(file_system->disk, inode_delete.block[index], 0);
+        } else {
+          // 间接索引
+          index -= 6;
+          if (index < 128) {
+            // 一级索引
+            int num;
+            readBlock(file_system->disk, inode_delete.block[6], block);
+            memcpy(&num, block+index * sizeof(int), sizeof(int));
+          } else {
+            index -= 128;
+            // 二级索引
+          }
+        }
+        // TODO Super Block 和 Group Desc 的信息都要更新
+      }
       return SUCCESS;
     }
   }
   // 没有找到
-  // TODO 修改输出样式
-  printf("The directory named \"%d\" isn't exist!\n", name);
-  return FAILURE;
+  switch (entry.file_type) {
+    case EXT2_DIR:
+      printf("The directory named \"%s\" isn't exist!\n", name);
+      return FAILURE;
+    case EXT2_FILE:
+      printf("The file named \"%s\" isn't exist!\n", name);
+      return FAILURE;
+    default:
+      printf("Error : Invalid file type!\n");
+      return FAILURE;
+  }
 }
 
 int ext2Open(Ext2FileSystem *file_system, Ext2Inode *current, char *name) {
