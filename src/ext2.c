@@ -379,7 +379,32 @@ int writeParentEntry(Disk *disk, Ext2Inode *inode, Ext2DirEntry *entry) {
 }
 
 int writeFile(Disk *disk, Ext2Inode *inode) {
-  // TODO write 使用
+  printf("Please input something, type <C-d> to stop writing.\n");
+  BYTE buffer[BLOCK_SIZE];
+  memset(buffer, 0, BLOCK_SIZE);
+  int cursor = 0;
+
+  char str = getCh();
+  while (str != 27) {
+    printf("%c", str);
+    // if (!(inode->size %512) {
+    // TODO 扩容
+    // }
+    memcpy(buffer + (cursor++), &str, sizeof(char));
+    if (str == 0x0d) printf("%c", 0x0a);
+    str = getCh();
+    if (str == 27) break;
+  }
+  printf("\n");
+
+  // 将block加入 inode
+  Ext2Location location = getFreeBlock(disk);
+  writeBlock(disk, location.block_idx, buffer);
+  inode->blocks++;
+  inode->block[0] = location.block_idx;
+  inode->size = cursor;
+  // TODO 添加修改时间
+  return SUCCESS;
 }
 
 int readFile(Disk *disk, Ext2Inode *inode) {
@@ -916,4 +941,16 @@ int writeBlock(Disk *disk, unsigned int block_idx, void *block) {
 int readBlock(Disk *disk, unsigned int block_idx, void *block) {
   disk->read_disk(disk, block_idx, block);
   return SUCCESS;
+}
+
+char getCh() {
+  char ch;
+  struct termios old_t, new_t;
+  tcgetattr(STDIN_FILENO, &old_t);
+  new_t = old_t;
+  new_t.c_lflag &= ~(ECHO | ICANON);
+  tcsetattr(STDIN_FILENO, TCSANOW, &new_t);
+  ch = getchar();
+  tcsetattr(STDIN_FILENO, TCSANOW, &old_t);
+  return ch;
 }
