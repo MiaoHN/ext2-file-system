@@ -742,7 +742,6 @@ int deleteDirEntry(Ext2FileSystem *file_system, Ext2Inode *current, char *name,
       // TODO 删除所有二级索引
       // 删除当前 inode
       freeInode(file_system->disk, inode_idx);
-      setInodeBitmap(file_system->disk, inode_idx, 0);
       return SUCCESS;
     }
   }
