@@ -200,7 +200,7 @@ int getInode(Disk *disk, unsigned int index, Ext2Inode *inode) {
   unsigned int inode_offset = (index % INODES_PER_BLOCK) * INODE_SIZE;
 
   readBlock(disk, inode_block, block);
-  memcpy(inode, block + inode_offset, INODE_SIZE);  // ???
+  memcpy(inode, block + inode_offset, INODE_SIZE);
   return SUCCESS;
 }
 
@@ -274,6 +274,34 @@ Ext2Location getFreeBlock(Disk *disk) {
   location.block_idx = -1;
   location.offset = -1;
   return location;
+}
+
+int freeBlock(Disk *disk, int index) {
+  // 删除 block 并更新 superblock 和 group desc
+  Ext2SuperBlock super_block;
+  Ext2GroupDescTable gdt;
+  setBlockBitmap(disk, index, 0);
+  getSuperBlock(disk, &super_block);
+  getGdt(disk, &gdt);
+  super_block.free_blocks_count++;
+  gdt.table[0].free_blocks_count++;
+  writeSuperBlock(disk, &super_block);
+  writeGdt(disk, &gdt);
+  return SUCCESS;
+}
+
+int freeInode(Disk *disk, int index) {
+  // 删除 inode 并更新 superblock 和 group desc
+  Ext2SuperBlock super_block;
+  Ext2GroupDescTable gdt;
+  setInodeBitmap(disk, index, 0);
+  getSuperBlock(disk, &super_block);
+  getGdt(disk, &gdt);
+  super_block.free_inodes_count++;
+  gdt.table[0].free_inodes_count++;
+  writeSuperBlock(disk, &super_block);
+  writeGdt(disk, &gdt);
+  return SUCCESS;
 }
 
 Ext2Location getDirEntryLocation(Disk *disk, unsigned int index,
@@ -588,20 +616,29 @@ int ext2Rm(Ext2FileSystem *file_system, Ext2Inode *current, char *name) {
 
 int deleteDirEntry(Ext2FileSystem *file_system, Ext2Inode *current, char *name,
                    int type) {
+  // 删除文件或文件夹，使用递归的方法：
+  // 1. 如果删除的是文件，则在当前文件夹下删除该文件的 dir entry，然后删除文件的
+  // inode,并将该 inode 下的所有 block 都释放
+  // 2. 如果删除的是文件夹，则在当前文件夹下删除该目录的 dir
+  // entry，然后遍历文件夹下的所有文件进行删除，并再次递归删除文件夹下的所有文件夹
   BYTE block[BLOCK_SIZE];
   // 无法删除上级目录和当前目录
   if (!strcmp(name, ".") || !strcmp(name, "..")) {
     printf("Error : can't delete current work directory!\n");
     return FAILURE;
   }
-  // 寻找文件
-  Ext2DirEntry entry;
+  // 寻找文件/目录的 Dir Entry
+  Ext2DirEntry entry;  // 要删除的 Dir Entry
+  int entry_index;
+  Ext2DirEntry last_entry;  // 当前目录最后的 Dir Entry
   unsigned int items = current->size / DIR_SIZE;
   for (unsigned int i = 2; i < items; i++) {
-    getDirEntry(file_system->disk, i, current, &entry);
-    if (!strcmp(entry.name, name)) {
-      if (entry.file_type != type) {
-        switch (entry.file_type) {
+    getDirEntry(file_system->disk, i, current, &last_entry);
+    if (!strcmp(last_entry.name, name)) {
+      // 找到同名的 Dir Entry
+      if (last_entry.file_type != type) {
+        // 类型不同，删除失败
+        switch (last_entry.file_type) {
           case EXT2_DIR:
             printf("This is directory, please use \"rmdir\" to delete!\n");
             return FAILURE;
@@ -613,68 +650,80 @@ int deleteDirEntry(Ext2FileSystem *file_system, Ext2Inode *current, char *name,
             return FAILURE;
         }
       }
-      // 找到目录的 Dir Entry，开始删除
-      // * 先处理当面目录项信息
-      Ext2DirEntry current_entry;
-      Ext2DirEntry entry_last;
-      Ext2Location entry_last_location;
-      getCurrentEntry(file_system->disk, current, &current_entry);
-      entry_last_location = getDirEntryLocation(
-          file_system->disk, current->size / DIR_SIZE - 1, current);
-      if (entry_last_location.offset == 0) {
-        // 如果最后一块在新块的末尾，则删除这个块
-        // 从 bitmap 中删除
-        setBlockBitmap(file_system->disk, entry_last_location.block_idx, 0);
-        current->blocks--;
+      // 记录待删除 Dir Entry 的位置
+      memcpy(&entry, &last_entry, DIR_SIZE);
+      entry_index = i;
+    }
+  }
+
+  // * 先删除当前目录的信息
+  // 将 inode->block 中最后的 entry 与待删除的 entry 互换位置
+  if (entry_index != (items - 1)) {
+    // 待删除的 entry 不是末尾
+    Ext2Location entry_loc;
+    entry_loc = getDirEntryLocation(file_system->disk, entry_index, current);
+    Ext2DirEntry temp;
+    readBlock(file_system->disk, entry_loc.block_idx, block);
+    memcpy(block + entry_loc.offset, &last_entry, DIR_SIZE);
+    writeBlock(file_system->disk, entry_loc.block_idx, block);
+  }
+  Ext2Location last_location;  // 最后 entry 的位置
+  last_location = getDirEntryLocation(file_system->disk, items - 1, current);
+  if (last_location.offset == 0) {
+    // 在新块
+    freeBlock(file_system->disk, last_location.block_idx);
+  }
+  current->size -= DIR_SIZE;
+  // 将 current 更新到 disk
+  Ext2DirEntry current_entry;
+  getDirEntry(file_system->disk, 1, current, &current_entry);
+  int current_inode_index = current_entry.inode;
+  Ext2Location loc;
+  loc.block_idx = INODE_TABLE_BASE + current_inode_index / INODES_PER_BLOCK;
+  loc.offset = (current_inode_index % INODES_PER_BLOCK) * INODE_SIZE;
+  writeInode(file_system->disk, current, &loc);
+
+  // * 再处理待删除的 inode
+  int inode_idx = entry.inode;
+  Ext2Inode inode;
+  getInode(file_system->disk, inode_idx, &inode);
+  if (type == EXT2_DIR) {
+    // 如果删除的是文件夹
+    if (inode.size == DIR_SIZE * 2) {
+      // 空文件夹，直接删除
+      freeBlock(file_system->disk, inode.block[0]);
+      freeInode(file_system->disk, inode_idx);
+      return SUCCESS;
+    }
+    // 文件夹非空，遍历删除
+    for (int ii = 0; ii < inode.size / DIR_SIZE; ii++) {
+      Ext2DirEntry child_entry;
+      getDirEntry(file_system->disk, ii, &inode, &child_entry);
+      if (child_entry.file_type == EXT2_DIR) {
+        ext2Rmdir(file_system, &inode, child_entry.name);
       } else {
-        readBlock(file_system->disk, entry_last_location.block_idx, block);
-        memcpy(&entry_last, block + entry_last_location.offset, DIR_SIZE);
-        if (!strcmp(entry_last.name, name)) {
-          // 最后一块就是被删除的文件，删除这个块
-          setBlockBitmap(file_system->disk, entry_last_location.block_idx, 0);
-          current->blocks--;
-          current->size -= DIR_SIZE;
-        } else {
-          // 找到被删除文件位置并用 block_last 覆盖
-          Ext2Location entry_location =
-              getDirEntryLocation(file_system->disk, i, current);
-          readBlock(file_system->disk, entry_location.block_idx, block);
-          memcpy(block + entry_location.offset, &entry_last, DIR_SIZE);
-          writeBlock(file_system->disk, entry_location.block_idx, block);
-          current->size -= DIR_SIZE;
-        }
+        ext2Rm(file_system, &inode, child_entry.name);
       }
-      writeCurrentEntry(file_system->disk, current, &current_entry);
-      // * 再处理被删除文件的块信息
-      // 先找到 inode
-      Ext2Inode inode_delete;
-      getInode(file_system->disk, entry.inode, &inode_delete);
-      setInodeBitmap(file_system->disk, entry.inode, 0);
-      // 删除 inode 下的所有引用块
-      int items = inode_delete.size / DIR_SIZE;
-      for (int ii = 0; ii < items; ii++) {
-        int index = ii;
-        if (index < 6) {
-          // 直接索引处
-          setBlockBitmap(file_system->disk, inode_delete.block[index], 0);
-        } else {
-          // 间接索引
-          index -= 6;
-          if (index < 128) {
-            // 一级索引
-            int num;
-            readBlock(file_system->disk, inode_delete.block[6], block);
-            memcpy(&num, block+index * sizeof(int), sizeof(int));
-          } else {
-            index -= 128;
-            // 二级索引
-          }
-        }
-        // TODO Super Block 和 Group Desc 的信息都要更新
-      }
+      // 删除当前 inode
+      freeInode(file_system->disk, inode_idx);
+      return SUCCESS;
+    }
+  } else {
+    // 如果删除的是文件
+    for (int ii = 0; ii < inode.blocks; ii++) {
+      // 将文件的 block 都删除
+      // 先删除文件的直接索引
+      Ext2Location location =
+          getDirEntryLocation(file_system->disk, ii * 12, &inode);
+      freeBlock(file_system->disk, location.block_idx);
+      // TODO 删除所有一级索引
+      // TODO 删除所有二级索引
+      // 删除当前 inode
+      freeInode(file_system->disk, inode_idx);
       return SUCCESS;
     }
   }
+
   // 没有找到
   switch (entry.file_type) {
     case EXT2_DIR:

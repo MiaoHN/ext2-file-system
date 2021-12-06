@@ -45,9 +45,8 @@ typedef struct Ext2SuperBlock {
   UINT32 reserved[105];  // 保留
 } Ext2SuperBlock;
 
-/**
- * @brief 组描述符，占用大小 32 bytes
- *
+/*
+ * 组描述符，占用大小 32 bytes
  */
 typedef struct Ext2GroupDesc {
   UINT32 block_bitmap;       // 指向该组中块位图所在块的指针
@@ -60,9 +59,8 @@ typedef struct Ext2GroupDesc {
   UINT32 reserved[3];        // 保留
 } Ext2GroupDesc;
 
-/**
- * @brief gdt，占用一个 block，最多有16个组
- *
+/*
+ * gdt，占用一个 block，最多有16个组
  */
 typedef struct Ext2GroupDescTable {
   Ext2GroupDesc table[16];
@@ -190,6 +188,9 @@ Ext2Location getFreeInode(Disk* disk);
  */
 Ext2Location getFreeBlock(Disk* disk);
 
+int freeBlock(Disk* disk, int index);
+int freeInode(Disk* disk, int index);
+
 /**
  * @brief 从 block 数组中找到第 index 处的块
  *
@@ -210,95 +211,33 @@ int getParentEntry(Disk* disk, Ext2Inode* inode, Ext2DirEntry* entry);
 int writeCurrentEntry(Disk* disk, Ext2Inode* inode, Ext2DirEntry* entry);
 int writeParentEntry(Disk* disk, Ext2Inode* inode, Ext2DirEntry* entry);
 
-/**
- * @brief 将 disk 初始化文件系统
- *
- * @param disk
- * @return int
- */
+// shell 调用的操作
+
 int ext2Format(Disk* disk);
-
-/**
- * @brief 列出 current 所处位置的所有文件和目录
- *
- * @param file_system 当前文件系统
- * @param current 当前 inode 位置
- * @return int
- */
 int ext2Ls(Ext2FileSystem* file_system, Ext2Inode* current);
-
-/**
- * @brief 将位于 path 处的磁盘挂载到 file_system，并将 current 设为根目录
- *
- * @param file_system 被挂载的文件系统
- * @param current 被设置为根目录的 inode
- * @param path 磁盘位置
- * @return int
- */
 int ext2Mount(Ext2FileSystem* file_system, Ext2Inode* current, char* path);
-
-/**
- * @brief 创建文件夹
- *
- * @param file_system
- * @param current
- * @param name
- * @return int
- */
 int ext2Mkdir(Ext2FileSystem* file_system, Ext2Inode* current, char* name);
-
-/**
- * @brief 创建文件
- *
- * @param file_system
- * @param current
- * @param name
- * @return int
- */
 int ext2Touch(Ext2FileSystem* file_system, Ext2Inode* current, char* name);
-
 int ext2Rmdir(Ext2FileSystem* file_system, Ext2Inode* current, char* name);
-
 int ext2Rm(Ext2FileSystem* file_system, Ext2Inode* current, char* name);
-
 int deleteDirEntry(Ext2FileSystem* file_system, Ext2Inode* current, char* name,
                    int type);
-
-/**
- * @brief 从 current 处打开名为 name 的路径
- *
- * @param file_system
- * @param current 当前位置
- * @param name 打开路径名称
- * @return int
- */
 int ext2Open(Ext2FileSystem* file_system, Ext2Inode* current, char* name);
+
+// Bitmap 操作
 
 void getInodeBitmap(Disk* disk, BYTE bitmap[BLOCK_SIZE]);
 void getBlockBitmap(Disk* disk, BYTE bitmap[BLOCK_SIZE]);
-
-void setInodeBitmap(Disk* disk, unsigned int index, int value);
 void setBlockBitmap(Disk* disk, unsigned int index, int value);
-
+void setInodeBitmap(Disk *disk, unsigned int index, int value);
 void writeInodeBitmap(Disk* disk, BYTE bitmap[BLOCK_SIZE]);
 void writeBlockBitmap(Disk* disk, BYTE bitmap[BLOCK_SIZE]);
 
-/**
- * @brief 将位图 block 位于 index 处的值设为 value
- *
- * @param block
- * @param index
- * @param value
- * @return int
- */
-int setBit(BYTE bitmap[BLOCK_SIZE], int index, int value);
+// 位操作
 
-/**
- * @brief 得到从左往右第一个 0 的位置
- *
- * @param byte
- * @return int
- */
+// 将位图 block 位于 index 处的值设为 value
+int setBit(BYTE bitmap[BLOCK_SIZE], int index, int value);
+// 得到从左往右第一个 0 的位置
 int getOffset(BYTE byte);
 
 int writeBlock(Disk* disk, unsigned int block_idx, void* block);
