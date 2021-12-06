@@ -211,6 +211,9 @@ int getParentEntry(Disk* disk, Ext2Inode* inode, Ext2DirEntry* entry);
 int writeCurrentEntry(Disk* disk, Ext2Inode* inode, Ext2DirEntry* entry);
 int writeParentEntry(Disk* disk, Ext2Inode* inode, Ext2DirEntry* entry);
 
+int writeFile(Disk* disk, Ext2Inode* inode);
+int readFile(Disk* disk, Ext2Inode* inode);
+
 // shell 调用的操作
 
 int ext2Format(Disk* disk);

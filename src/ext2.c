@@ -378,6 +378,27 @@ int writeParentEntry(Disk *disk, Ext2Inode *inode, Ext2DirEntry *entry) {
   return writeDirEntry(disk, 0, inode, entry);
 }
 
+int writeFile(Disk *disk, Ext2Inode *inode) {
+  // TODO write 使用
+}
+
+int readFile(Disk *disk, Ext2Inode *inode) {
+  BYTE block[BLOCK_SIZE];
+  if (inode->size == 0) {
+    // 文件为空
+    printf("%%empty%%\n");
+    return SUCCESS;
+  }
+  for (int i = 0; i < inode->blocks; i++) {
+    // 将所有 block 中的内容输出
+    Ext2Location block_loc = getDirEntryLocation(disk, i * 16, inode);
+    readBlock(disk, block_loc.block_idx, block);
+    printf("%s", block);
+  }
+  printf("\n");
+  return SUCCESS;
+}
+
 unsigned int addDirEntry(Disk *disk, Ext2Inode *parent_inode,
                          Ext2DirEntry *entry) {
   BYTE block[BLOCK_SIZE];
@@ -445,7 +466,7 @@ unsigned int addDirEntry(Disk *disk, Ext2Inode *parent_inode,
       unsigned block_block = dir_block / dir_records_per_block;
       unsigned block_offset = dir_block % dir_records_per_block;
       unsigned int num;
-      // TODO
+      // TODO 完成二级索引
       readBlock(disk, parent_inode->block[7], block);
       memcpy(&num, block + block_block * sizeof(unsigned int),
              sizeof(unsigned int));
@@ -716,10 +737,12 @@ int deleteDirEntry(Ext2FileSystem *file_system, Ext2Inode *current, char *name,
       Ext2Location location =
           getDirEntryLocation(file_system->disk, ii * 12, &inode);
       freeBlock(file_system->disk, location.block_idx);
+      setBlockBitmap(file_system->disk, location.block_idx, 0);
       // TODO 删除所有一级索引
       // TODO 删除所有二级索引
       // 删除当前 inode
       freeInode(file_system->disk, inode_idx);
+      setInodeBitmap(file_system->disk, inode_idx, 0);
       return SUCCESS;
     }
   }
@@ -767,12 +790,55 @@ int ext2Open(Ext2FileSystem *file_system, Ext2Inode *current, char *name) {
 }
 
 int ext2Write(Ext2FileSystem *file_system, Ext2Inode *current, char *name) {
-  // TODO write
+  // 先找到这个文件入口
+  Ext2DirEntry entry;
+  unsigned int items = current->size / DIR_SIZE;
+  for (unsigned int i = 2; i < items; i++) {
+    getDirEntry(file_system->disk, i, current, &entry);
+    if (!strcmp(entry.name, name)) {
+      // 找到同名的 Dir Entry
+      if (entry.file_type != EXT2_FILE) {
+        // 不是文件
+        printf("This is a directory!\n");
+        return FAILURE;
+      }
+      break;
+    }
+  }
+
+  // 找到 entry 后
+  Ext2Inode inode;
+  getInode(file_system->disk, entry.inode, &inode);
+  writeFile(file_system->disk, &inode);
+  Ext2Location loc;
+  loc.block_idx = INODE_TABLE_BASE + entry.inode / INODES_PER_BLOCK;
+  loc.offset = (entry.inode % INODES_PER_BLOCK) * INODE_SIZE;
+  writeInode(file_system->disk, &inode, &loc);
+
   return SUCCESS;
 }
 
 int ext2Cat(Ext2FileSystem *file_system, Ext2Inode *current, char *name) {
-  // TODO cat
+  // 先找到这个文件入口
+  Ext2DirEntry entry;
+  unsigned int items = current->size / DIR_SIZE;
+  for (unsigned int i = 2; i < items; i++) {
+    getDirEntry(file_system->disk, i, current, &entry);
+    if (!strcmp(entry.name, name)) {
+      // 找到同名的 Dir Entry
+      if (entry.file_type != EXT2_FILE) {
+        // 不是文件
+        printf("This is a directory!\n");
+        return FAILURE;
+      }
+      break;
+    }
+  }
+
+  // 找到 entry 后
+  Ext2Inode inode;
+  getInode(file_system->disk, entry.inode, &inode);
+  readFile(file_system->disk, &inode);
   return SUCCESS;
 }
 
