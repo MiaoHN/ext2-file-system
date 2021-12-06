@@ -36,6 +36,8 @@ int shell_touch(char **args);
 int shell_cd(char **args);
 int shell_rm(char **args);
 int shell_rmdir(char **args);
+int shell_write(char **args);
+int shell_cat(char **args);
 int shell_exit(char **args);
 
 int shellFuncNum();

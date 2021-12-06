@@ -766,6 +766,16 @@ int ext2Open(Ext2FileSystem *file_system, Ext2Inode *current, char *name) {
   return FAILURE;
 }
 
+int ext2Write(Ext2FileSystem *file_system, Ext2Inode *current, char *name) {
+  // TODO write
+  return SUCCESS;
+}
+
+int ext2Cat(Ext2FileSystem *file_system, Ext2Inode *current, char *name) {
+  // TODO cat
+  return SUCCESS;
+}
+
 void getInodeBitmap(Disk *disk, BYTE bitmap[BLOCK_SIZE]) {
   memset(bitmap, 0, BLOCK_SIZE);
   readBlock(disk, INODE_BITMAP_BASE, bitmap);

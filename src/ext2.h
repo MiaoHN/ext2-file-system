@@ -223,13 +223,15 @@ int ext2Rm(Ext2FileSystem* file_system, Ext2Inode* current, char* name);
 int deleteDirEntry(Ext2FileSystem* file_system, Ext2Inode* current, char* name,
                    int type);
 int ext2Open(Ext2FileSystem* file_system, Ext2Inode* current, char* name);
+int ext2Write(Ext2FileSystem* file_system, Ext2Inode* current, char* name);
+int ext2Cat(Ext2FileSystem* file_system, Ext2Inode* current, char* name);
 
 // Bitmap 操作
 
 void getInodeBitmap(Disk* disk, BYTE bitmap[BLOCK_SIZE]);
 void getBlockBitmap(Disk* disk, BYTE bitmap[BLOCK_SIZE]);
 void setBlockBitmap(Disk* disk, unsigned int index, int value);
-void setInodeBitmap(Disk *disk, unsigned int index, int value);
+void setInodeBitmap(Disk* disk, unsigned int index, int value);
 void writeInodeBitmap(Disk* disk, BYTE bitmap[BLOCK_SIZE]);
 void writeBlockBitmap(Disk* disk, BYTE bitmap[BLOCK_SIZE]);
 
