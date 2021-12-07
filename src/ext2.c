@@ -536,7 +536,7 @@ int ext2Ls(Ext2FileSystem* file_system, Ext2Inode* current) {
   // 读取 current 对应第一块 block
   printf(
       "\x1B[4mType\x1B[0m\t\x1B[4mPermission\x1B[0m\t\x1B[4mSize\x1B[0m\t\x1B["
-      "4mModify Time\x1B[0m\t\t\t\x1B[4mName\x1B[0m\t\x1B[4mInode\x1B[0m\n");
+      "4mModify Time\x1B[0m\t\t\t\x1B[4mName\x1B[0m\t\n");
   BYTE block[BLOCK_SIZE];
   for (unsigned int i = 0; i < items; i++) {
     Ext2Location location = getDirEntryLocation(file_system->disk, i, current);
@@ -549,9 +549,7 @@ int ext2Ls(Ext2FileSystem* file_system, Ext2Inode* current) {
     char str_size[16];
     char str_time[128];
     char str_name[16];
-    char str_inode[16];
     strcpy(str_name, dir.name);
-    sprintf(str_inode, "%d", dir.inode);
     if (dir.file_type == EXT2_DIR) {
       strcpy(str_type, "Dir");
       strcpy(str_permission, "-\t");
@@ -573,8 +571,8 @@ int ext2Ls(Ext2FileSystem* file_system, Ext2Inode* current) {
         str_time[j] = '\t';
       }
     }
-    printf("%s\t%s\t%s\t%s%s\t%s\n", str_type, str_permission, str_size,
-           str_time, str_name, str_inode);
+    printf("%s\t%s\t%s\t%s%s\n", str_type, str_permission, str_size, str_time,
+           str_name);
   }
   return SUCCESS;
 }
@@ -838,7 +836,7 @@ int deleteDirEntry(Ext2FileSystem* file_system,
       return SUCCESS;
     }
     // 文件夹非空，遍历删除
-    for (int ii = 0; ii < inode.size / DIR_SIZE; ii++) {
+    for (int ii = 2; ii < inode.size / DIR_SIZE; ii++) {
       Ext2DirEntry child_entry;
       getDirEntry(file_system->disk, ii, &inode, &child_entry);
       if (child_entry.file_type == EXT2_DIR) {
@@ -852,7 +850,7 @@ int deleteDirEntry(Ext2FileSystem* file_system,
     }
   } else {
     // 如果删除的是文件
-    for (int ii = 0; ii < inode.blocks; ii++) {
+    for (int ii = 2; ii < inode.blocks; ii++) {
       // 将文件的 block 都删除
       // 先删除文件的直接索引
       Ext2Location location =
@@ -867,18 +865,7 @@ int deleteDirEntry(Ext2FileSystem* file_system,
     }
   }
 
-  // 没有找到
-  switch (entry.file_type) {
-    case EXT2_DIR:
-      printf("The directory named \"%s\" isn't exist!\n", name);
-      return FAILURE;
-    case EXT2_FILE:
-      printf("The file named \"%s\" isn't exist!\n", name);
-      return FAILURE;
-    default:
-      printf("Error : Invalid file type!\n");
-      return FAILURE;
-  }
+  return FAILURE;
 }
 
 int ext2Open(Ext2FileSystem* file_system, Ext2Inode* current, char* name) {
