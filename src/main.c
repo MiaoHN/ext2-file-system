@@ -5,12 +5,12 @@
 #include "shell.h"
 
 int main() {
-  // if (freopen("script.txt", "r", stdin) ==
-  //     NULL)  //将标准输入流重定向至stdin.txt流
-  // {
-  //   fprintf(stderr, "打开文件失败！");
-  //   exit(-1);
-  // }
+#if 0
+  if (freopen("script.txt", "r", stdin) == NULL) {
+    fprintf(stderr, "打开文件失败！");
+    exit(-1);
+  }
+#endif
   shellStart();
   return 0;
 }
