@@ -6,8 +6,7 @@ static Command commands[] = {
     {"cd", &shell_cd},       {"exit", &shell_exit},   {"umount", &shell_umount},
     {"rmdir", &shell_rmdir}, {"rm", &shell_rm},       {"write", &shell_write},
     {"cat", &shell_cat},     {"pwd", &shell_pwd},     {"help", &shell_help},
-    {"clear", &shell_clear},
-};
+    {"clear", &shell_clear}, {"chmod", &shell_chmod}};
 
 char* path_stack[256];
 static int stack_top = -1;
@@ -144,6 +143,21 @@ int shell_touch(char** args) {
   return 1;
 }
 
+int shell_chmod(char** args) {
+  if (is_mounted == 0) {
+    shellLaunch(args);
+    return 1;
+  }
+
+  if (args[1] == NULL) {
+    printf("usage: chmod <file-name>\n");
+    return 1;
+  }
+
+  ext2Chmod(&shell_entry.file_system, &shell_entry.current_user, args[1]);
+  return 1;
+}
+
 int shell_cd(char** args) {
   if (is_mounted == 0) {
     if (args[1] == NULL) {
@@ -246,7 +260,10 @@ int shell_pwd(char** args) {
     return 1;
   }
 
-  printf("%s\n", path_stack);
+  for (int i = 0; i < stack_top; i++) {
+    printf("%s/", path_stack[i]);
+  }
+  printf("\n");
 
   return 1;
 }
@@ -268,6 +285,7 @@ int shell_help(char** args) {
     printf("Following commands you can use:\n");
     printf("    mkdir <name>\n");
     printf("    touch <name>\n");
+    printf("    chmod <name>\n");
     printf("    write <name>\n");
     printf("    cat <name>\n");
     printf("    pwd\n");

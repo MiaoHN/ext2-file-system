@@ -10,6 +10,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "common.h"
 #include "ext2.h"
 
 #define TOK_BUFSIZE 64
@@ -37,6 +38,7 @@ int shell_mkdir(char** args);
 int shell_help(char** args);
 int shell_clear(char** args);
 int shell_touch(char** args);
+int shell_chmod(char** args);
 int shell_cd(char** args);
 int shell_pwd(char** args);
 int shell_rm(char** args);

@@ -6,6 +6,12 @@
 
 #include <assert.h>
 
+#define WRITABLE 1
+#define CANNOT_WRITE 0
+
+#define EXT2_FILE 0
+#define EXT2_DIR 1
+
 #define EXT2_N_BLOCKS 8
 
 #define DIR_NAME_LEN 15

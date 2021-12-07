@@ -4,14 +4,10 @@
 #include <stdio.h>
 #include <termio.h>
 #include <unistd.h>
+#include <time.h>
 
 #include "common.h"
 #include "disk.h"
-
-enum Ext2FileType {
-  EXT2_FILE = 1,
-  EXT2_DIR = 2,
-};
 
 /**
  * @brief 超级块占用一个 block，512 bytes
@@ -78,10 +74,10 @@ typedef struct Ext2Inode {
   UINT16 mode;                  // 文件类型及访问权限
   UINT16 uid;                   // 文件拥有者的标识号 UID
   UINT32 size;                  // 文件大小(字节)
-  UINT32 atime;                 // 最后一次访问时间
-  UINT32 ctime;                 // 创建时间
-  UINT32 mtime;                 // 该文件内容最后修改时间
-  UINT32 dtime;                 // 文件删除时间
+  time_t atime;                 // 最后一次访问时间
+  time_t ctime;                 // 创建时间
+  time_t mtime;                 // 该文件内容最后修改时间
+  time_t dtime;                 // 文件删除时间
   UINT16 gid;                   // 文件的用户组的组号
   UINT16 links_count;           // 文件的链接计数
   UINT32 blocks;                // 文件的数据块个数(以512字节计)
@@ -92,7 +88,7 @@ typedef struct Ext2Inode {
   UINT32 dir_acl;               // 目录访问控制表( ACL 已不再使用)
   BYTE frag;                    // 每块中的片数
   BYTE fsize;                   // 片的大小
-  UINT16 reserved[24];          // 保留
+  UINT16 reserved[16];          // 保留
 } Ext2Inode;
 
 typedef struct Ext2InodeTable {
@@ -228,6 +224,7 @@ int ext2Ls(Ext2FileSystem* file_system, Ext2Inode* current);
 int ext2Mount(Ext2FileSystem* file_system, Ext2Inode* current, char* path);
 int ext2Mkdir(Ext2FileSystem* file_system, Ext2Inode* current, char* name);
 int ext2Touch(Ext2FileSystem* file_system, Ext2Inode* current, char* name);
+int ext2Chmod(Ext2FileSystem* file_system,Ext2Inode*current, char*name);
 int ext2Rmdir(Ext2FileSystem* file_system, Ext2Inode* current, char* name);
 int ext2Rm(Ext2FileSystem* file_system, Ext2Inode* current, char* name);
 int deleteDirEntry(Ext2FileSystem* file_system, Ext2Inode* current, char* name,

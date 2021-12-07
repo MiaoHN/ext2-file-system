@@ -112,7 +112,7 @@ int initRootDir(Disk* disk) {
   Ext2DirEntry entry;
   strcpy(entry.name, "..");
   entry.name_len = strlen("..");
-  entry.file_type = DIR_TYPE;
+  entry.file_type = EXT2_DIR;
   entry.rec_len = 2;
   entry.inode = 0;
   addDirEntry(disk, &root_inode, &entry);
@@ -120,7 +120,7 @@ int initRootDir(Disk* disk) {
   // 根目录的指向自己的目录块
   strcpy(entry.name, ".");
   entry.name_len = strlen(".");
-  entry.file_type = DIR_TYPE;
+  entry.file_type = EXT2_DIR;
   entry.rec_len = 2;
   entry.inode = 0;
   addDirEntry(disk, &root_inode, &entry);
@@ -209,6 +209,7 @@ unsigned int getInodeIndex(Disk* disk, Ext2Inode* inode) {
 
 int writeInode(Disk* disk, Ext2Inode* inode, Ext2Location* location) {
   BYTE block[BLOCK_SIZE];
+  inode->mtime = time(NULL);
   readBlock(disk, location->block_idx, block);
   memcpy(block + location->offset, inode, INODE_SIZE);
   writeBlock(disk, location->block_idx, block);
@@ -541,21 +542,45 @@ int ext2Ls(Ext2FileSystem* file_system, Ext2Inode* current) {
   unsigned int items = current->size / DIR_SIZE;
   Ext2DirEntry dir;
   // 读取 current 对应第一块 block
-  printf("Type\t\tName\tInode\n");
+  printf(
+      "\x1B[4mType\x1B[0m\t\x1B[4mPermission\x1B[0m\t\x1B[4mSize\x1B[0m\t\x1B["
+      "4mModify Time\x1B[0m\t\t\t\x1B[4mName\x1B[0m\n");
   BYTE block[BLOCK_SIZE];
   for (unsigned int i = 0; i < items; i++) {
     Ext2Location location = getDirEntryLocation(file_system->disk, i, current);
     readBlock(file_system->disk, location.block_idx, block);
     memcpy(&dir, block + location.offset, DIR_SIZE);
+    Ext2Inode temp;
+    getInode(file_system->disk, dir.inode, &temp);
+    char str_type[16];
+    char str_permission[16];
+    char str_size[16];
+    char str_time[128];
+    char str_name[16];
+    strcpy(str_name, dir.name);
     if (dir.file_type == EXT2_DIR) {
-      printf("Dir\t\t\t");
+      strcpy(str_type, "Dir");
+      strcpy(str_permission, "-\t");
+      strcpy(str_size, "-");
     } else if (dir.file_type == EXT2_FILE) {
-      printf("File\t\t\t");
-    } else {
-      printf("error occurred!\n");
-      return FAILURE;
+      strcpy(str_type, "File");
+      int permission = (temp.mode >> 1);
+      if (permission == WRITABLE) {
+        strcpy(str_permission, "Writable");
+      } else {
+        strcpy(str_permission, "Can't Write");
+      }
+      sprintf(str_size, "%d", temp.size);
     }
-    printf("%s\t\t%d\n", dir.name, dir.inode);
+    strcpy(str_time, "");
+    strcat(str_time, asctime(localtime(&temp.mtime)));
+    for (int j = 0; j < strlen(str_time); j++) {
+      if (str_time[j] == '\n') {
+        str_time[j] = '\t';
+      }
+    }
+    printf("%s\t%s\t%s\t%s%s\n", str_type, str_permission, str_size, str_time,
+           str_name);
   }
   return SUCCESS;
 }
@@ -607,7 +632,7 @@ int ext2Mkdir(Ext2FileSystem* file_system, Ext2Inode* current, char* name) {
   // 写入新目录的 inode
   Ext2Inode new_inode;
   memset(&new_inode, 0, INODE_SIZE);
-  new_inode.mode = 2;
+  new_inode.mode = EXT2_DIR;
   new_inode.blocks = 0;
   new_inode.size = 0;
 
@@ -669,7 +694,7 @@ int ext2Touch(Ext2FileSystem* file_system, Ext2Inode* current, char* name) {
   // 写入新目录的 inode
   Ext2Inode new_inode;
   memset(&new_inode, 0, INODE_SIZE);
-  new_inode.mode = 2;
+  new_inode.mode = EXT2_DIR + (WRITABLE << 1);
   new_inode.blocks = 0;
   new_inode.size = 0;
   writeInode(file_system->disk, &new_inode, &inode_location);
@@ -682,6 +707,36 @@ int ext2Touch(Ext2FileSystem* file_system, Ext2Inode* current, char* name) {
   parent_location.offset = (parent_inode_index % INODES_PER_BLOCK) * INODE_SIZE;
   writeInode(file_system->disk, current, &parent_location);
 
+  return SUCCESS;
+}
+
+int ext2Chmod(Ext2FileSystem* file_system, Ext2Inode* current, char* name) {
+  // 先找到这个文件入口
+  Ext2DirEntry entry;
+  unsigned int items = current->size / DIR_SIZE;
+  for (unsigned int i = 2; i < items; i++) {
+    getDirEntry(file_system->disk, i, current, &entry);
+    if (!strcmp(entry.name, name)) {
+      // 找到同名的 Dir Entry
+      if (entry.file_type != EXT2_FILE) {
+        // 不是文件
+        printf("This is a directory!\n");
+        return FAILURE;
+      }
+      break;
+    }
+  }
+  Ext2Inode inode;
+  getInode(file_system->disk, entry.inode, &inode);
+  if (inode.mode == WRITABLE) {
+    inode.mode = (CANNOT_WRITE << 1) ^ inode.mode;
+  } else {
+    inode.mode = (WRITABLE << 1) ^ inode.mode;
+  }
+  Ext2Location location;
+  location.block_idx = INODE_TABLE_BASE + entry.inode / INODES_PER_BLOCK;
+  location.offset = (entry.inode % INODES_PER_BLOCK) * INODE_SIZE;
+  writeInode(file_system->disk, &inode, &location);
   return SUCCESS;
 }
 
@@ -881,6 +936,10 @@ int ext2Write(Ext2FileSystem* file_system, Ext2Inode* current, char* name) {
   // 找到 entry 后
   Ext2Inode inode;
   getInode(file_system->disk, entry.inode, &inode);
+  if ((inode.mode >> 1) == CANNOT_WRITE) {
+    printf("Permission denied. Please use \"chmod\" to write this file.\n");
+    return FAILURE;
+  }
   writeFile(file_system->disk, &inode);
   Ext2Location loc;
   loc.block_idx = INODE_TABLE_BASE + entry.inode / INODES_PER_BLOCK;
