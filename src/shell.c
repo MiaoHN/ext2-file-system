@@ -5,10 +5,10 @@ static Command commands[] = {
     {"mount", &shell_mount}, {"mkdir", &shell_mkdir}, {"touch", &shell_touch},
     {"cd", &shell_cd},       {"exit", &shell_exit},   {"umount", &shell_umount},
     {"rmdir", &shell_rmdir}, {"rm", &shell_rm},       {"write", &shell_write},
-    {"cat", &shell_cat},
+    {"cat", &shell_cat},     {"pwd", &shell_pwd},
 };
 
-char *path_stack[256];
+char* path_stack[256];
 static int stack_top = -1;
 static ShellEntry shell_entry;
 int is_mounted = 0;
@@ -18,12 +18,16 @@ void exitDisplay() {
   return;
 }
 
-int getCurrentPath(char *path) {
+int getCurrentPath(char* path) {
   strcpy(path, path_stack[stack_top]);
   return 1;
 }
 
-int shell_mkdsk(char **args) {
+int shell_mkdsk(char** args) {
+  if (is_mounted == 1) {
+    printf("You're already mount on the disk, please umount before mkdsk\n");
+    return 1;
+  }
   if (args[1] == NULL) {
     printf("usage: makedisk <disk-name>\n");
     return 1;
@@ -35,7 +39,11 @@ int shell_mkdsk(char **args) {
   return 1;
 }
 
-int shell_format(char **args) {
+int shell_format(char** args) {
+  if (is_mounted == 1) {
+    printf("You're already mount on the disk, please umount before format\n");
+    return 1;
+  }
   if (args[1] == NULL) {
     printf("usage: format <disk-name>\n");
     return 1;
@@ -48,13 +56,13 @@ int shell_format(char **args) {
   return 1;
 }
 
-int shell_mount(char **args) {
-  if (args[1] == NULL) {
-    printf("usage: mount <disk-name>\n");
-    return 1;
-  }
+int shell_mount(char** args) {
   if (is_mounted == 1) {
     printf("You are already mounted in the Ext2 File System\n");
+    return 1;
+  }
+  if (args[1] == NULL) {
+    printf("usage: mount <disk-name>\n");
     return 1;
   }
 
@@ -65,25 +73,29 @@ int shell_mount(char **args) {
   return 1;
 }
 
-int shell_umount(char **args) {
+int shell_umount(char** args) {
+  if (is_mounted == 0) {
+    printf("The Ext2 File System is not mounted\n");
+    return 1;
+  }
   is_mounted = 0;
   stack_top = 0;
   path_stack[stack_top] = "/";
   return 1;
 }
 
-int shell_ls(char **args) {
+int shell_ls(char** args) {
   if (is_mounted == 0) {
-    printf("The file system isn't mounted!\n");
+    shellLaunch(args);
     return 1;
   }
   ext2Ls(&shell_entry.file_system, &shell_entry.current_user);
   return 1;
 }
 
-int shell_mkdir(char **args) {
+int shell_mkdir(char** args) {
   if (is_mounted == 0) {
-    printf("The file system isn't mounted!\n");
+    shellLaunch(args);
     return 1;
   }
 
@@ -97,9 +109,9 @@ int shell_mkdir(char **args) {
   return 1;
 }
 
-int shell_touch(char **args) {
+int shell_touch(char** args) {
   if (is_mounted == 0) {
-    printf("The file system isn't mounted!\n");
+    shellLaunch(args);
     return 1;
   }
 
@@ -113,9 +125,15 @@ int shell_touch(char **args) {
   return 1;
 }
 
-int shell_cd(char **args) {
+int shell_cd(char** args) {
   if (is_mounted == 0) {
-    printf("The file system isn't mounted!\n");
+    if (args[1] == NULL) {
+      fprintf(stderr, "Shell: expected argument to \"cd\"\n");
+    } else {
+      if (chdir(args[1]) != 0) {
+        perror("lsh");
+      }
+    }
     return 1;
   }
 
@@ -125,7 +143,8 @@ int shell_cd(char **args) {
   }
   if (!strcmp(args[1], "..")) {
     // 返回上级目录，栈顶减小
-    if (stack_top > 0) stack_top--;
+    if (stack_top > 0)
+      stack_top--;
     ext2Open(&shell_entry.file_system, &shell_entry.current_user, args[1]);
     return 1;
   } else if (!strcmp(args[1], ".")) {
@@ -136,15 +155,15 @@ int shell_cd(char **args) {
   if (ext2Open(&shell_entry.file_system, &shell_entry.current_user, args[1]) ==
       SUCCESS) {
     stack_top++;
-    path_stack[stack_top] = malloc(128 * sizeof(char *));
+    path_stack[stack_top] = malloc(128 * sizeof(char*));
     strcpy(path_stack[stack_top], args[1]);
   }
   return 1;
 }
 
-int shell_rm(char **args) {
+int shell_rm(char** args) {
   if (is_mounted == 0) {
-    printf("The file system isn't mounted!\n");
+    shellLaunch(args);
     return 1;
   }
   if (args[1] == NULL) {
@@ -157,9 +176,9 @@ int shell_rm(char **args) {
   return 1;
 }
 
-int shell_rmdir(char **args) {
+int shell_rmdir(char** args) {
   if (is_mounted == 0) {
-    printf("The file system isn't mounted!\n");
+    shellLaunch(args);
     return 1;
   }
   if (args[1] == NULL) {
@@ -172,7 +191,7 @@ int shell_rmdir(char **args) {
   return 1;
 }
 
-int shell_write(char **args) {
+int shell_write(char** args) {
   if (is_mounted == 0) {
     printf("The file system isn't mounted!\n");
     return 1;
@@ -187,9 +206,9 @@ int shell_write(char **args) {
   return 1;
 }
 
-int shell_cat(char **args) {
+int shell_cat(char** args) {
   if (is_mounted == 0) {
-    printf("The file system isn't mounted!\n");
+    shellLaunch(args);
     return 1;
   }
   if (args[1] == NULL) {
@@ -202,51 +221,64 @@ int shell_cat(char **args) {
   return 1;
 }
 
-int shell_exit(char **args) {
+int shell_pwd(char** args) {
+  if (is_mounted == 0) {
+    shellLaunch(args);
+    return 1;
+  }
+
+  printf("%s\n", path_stack);
+
+  return 1;
+}
+
+int shell_exit(char** args) {
   printf("Bye!\n");
   exit(0);
 }
 
-int shellFuncNum() { return sizeof(commands) / sizeof(Command); }
+int shellFuncNum() {
+  return sizeof(commands) / sizeof(Command);
+}
 
-char *shellReadLine() {
-  char *line = NULL;
+char* shellReadLine() {
+  char* line = NULL;
   size_t bufsize = 0;  // 利用 getline 帮助我们分配缓冲区
   getline(&line, &bufsize, stdin);
   return line;
 }
 
-char **shellSplitLine(char *line) {
-  int bufsize = LSH_TOK_BUFSIZE, position = 0;
-  char **tokens = malloc(bufsize * sizeof(char *));
-  char *token;
+char** shellSplitLine(char* line) {
+  int bufsize = TOK_BUFSIZE, position = 0;
+  char** tokens = malloc(bufsize * sizeof(char*));
+  char* token;
 
   if (!tokens) {
     fprintf(stderr, "lsh: allocation error\n");
     exit(EXIT_FAILURE);
   }
 
-  token = strtok(line, LSH_TOK_DELIM);
+  token = strtok(line, TOK_DELIM);
   while (token != NULL) {
     tokens[position] = token;
     position++;
 
     if (position >= bufsize) {
-      bufsize += LSH_TOK_BUFSIZE;
-      tokens = realloc(tokens, bufsize * sizeof(char *));
+      bufsize += TOK_BUFSIZE;
+      tokens = realloc(tokens, bufsize * sizeof(char*));
       if (!tokens) {
         fprintf(stderr, "shell: allocation error\n");
         exit(EXIT_FAILURE);
       }
     }
 
-    token = strtok(NULL, LSH_TOK_DELIM);
+    token = strtok(NULL, TOK_DELIM);
   }
   tokens[position] = NULL;
   return tokens;
 }
 
-int shellExecute(char **args) {
+int shellExecute(char** args) {
   int i = 0;
   if (args[0] == NULL) {
     // 输入了空的命令
@@ -260,7 +292,7 @@ int shellExecute(char **args) {
         return (*commands[i].func)(args);
       }
     }
-    // return shellLaunch(args);
+    return shellLaunch(args);
     return 1;
   } else {
     for (i = 0; i < shellFuncNum(); i++) {
@@ -272,9 +304,33 @@ int shellExecute(char **args) {
   return 1;
 }
 
+int shellLaunch(char** args) {
+  pid_t pid;
+  int status;
+
+  pid = fork();
+  if (pid == 0) {
+    // Child process
+    if (execvp(args[0], args) == -1) {
+      perror("lsh");
+    }
+    exit(EXIT_FAILURE);
+  } else if (pid < 0) {
+    // Error forking
+    perror("lsh");
+  } else {
+    // Parent process
+    do {
+      waitpid(pid, &status, WUNTRACED);
+    } while (!WIFEXITED(status) && !WIFSIGNALED(status));
+  }
+
+  return 1;
+}
+
 int shellLoop() {
-  char *line;
-  char **args;
+  char* line;
+  char** args;
   int status;
 
   do {

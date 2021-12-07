@@ -7,12 +7,14 @@
 #include <sys/ioctl.h>
 #include <termio.h>
 #include <time.h>
+#include <sys/wait.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include "ext2.h"
 
-#define LSH_TOK_BUFSIZE 64
-#define LSH_TOK_DELIM " \t\r\n\a"
+#define TOK_BUFSIZE 64
+#define TOK_DELIM " \t\r\n\a"
 
 typedef struct ShellEntry {
   Ext2Inode current_user;      // 当前位置
@@ -26,6 +28,7 @@ typedef struct Command {
 
 void exitDisplay();
 int getCurrentPath(char *path);
+
 int shell_mkdsk(char **args);
 int shell_format(char **args);
 int shell_mount(char **args);
@@ -34,6 +37,7 @@ int shell_ls(char **args);
 int shell_mkdir(char **args);
 int shell_touch(char **args);
 int shell_cd(char **args);
+int shell_pwd(char**args);
 int shell_rm(char **args);
 int shell_rmdir(char **args);
 int shell_write(char **args);
@@ -44,6 +48,7 @@ int shellFuncNum();
 char *shellReadLine();
 char **shellSplitLine(char *line);
 int shellExecute(char **args);
+int shellLaunch(char**args);
 int shellLoop();
 void shellStart();
 
