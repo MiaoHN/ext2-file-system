@@ -129,6 +129,9 @@ typedef struct Ext2FileSystem {
   Disk* disk;
 } Ext2FileSystem;
 
+
+int checkExt2(char* path);
+
 // initialize -----------
 
 int initSuperBlock(Ext2SuperBlock* super_block);

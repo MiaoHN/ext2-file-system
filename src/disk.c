@@ -20,6 +20,12 @@ int makeDisk(Disk* disk, const char* path) {
   }
   fclose(f);
 
+  printf("Successfully make disk named \"%s\"!\n", path);
+  printf("    Total Size:       %d bytes\n", BLOCK_SIZE * NUMBER_OF_BLOCKS);
+  printf("    Number of Blocks: %d\n", NUMBER_OF_BLOCKS);
+  printf("    Block Size:       %d bytes\n", BLOCK_SIZE);
+  printf("    Sector Size:      %d bytes\n", SECTOR_SIZE);
+  printf("    Sectors per Blocks: %d\n\n", SECTORS_PRE_BLOCK);
   return SUCCESS;
 }
 

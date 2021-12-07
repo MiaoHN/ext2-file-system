@@ -5,7 +5,8 @@ static Command commands[] = {
     {"mount", &shell_mount}, {"mkdir", &shell_mkdir}, {"touch", &shell_touch},
     {"cd", &shell_cd},       {"exit", &shell_exit},   {"umount", &shell_umount},
     {"rmdir", &shell_rmdir}, {"rm", &shell_rm},       {"write", &shell_write},
-    {"cat", &shell_cat},     {"pwd", &shell_pwd},
+    {"cat", &shell_cat},     {"pwd", &shell_pwd},     {"help", &shell_help},
+    {"clear", &shell_clear},
 };
 
 char* path_stack[256];
@@ -35,7 +36,6 @@ int shell_mkdsk(char** args) {
 
   Disk disk;
   makeDisk(&disk, args[1]);
-  printf("Successfully make a disk named %s !\n", args[1]);
   return 1;
 }
 
@@ -48,11 +48,17 @@ int shell_format(char** args) {
     printf("usage: format <disk-name>\n");
     return 1;
   }
+  if (access(args[1], F_OK) == -1) {
+    printf(
+        "The disk named \"%s\" isn't exist. Please use \"mkdsk\" to create a "
+        "disk first\n",
+        args[1]);
+    return 1;
+  }
   Disk disk;
   loadDisk(&disk, args[1]);
   ext2Format(&disk);
 
-  printf("Successfully format disk %s to Ext2\n", args[1]);
   return 1;
 }
 
@@ -65,11 +71,23 @@ int shell_mount(char** args) {
     printf("usage: mount <disk-name>\n");
     return 1;
   }
+  if (access(args[1], F_OK) == -1) {
+    printf(
+        "The disk named \"%s\" isn't exist. Please use \"mkdsk\" to create a "
+        "disk first\n",
+        args[1]);
+    return 1;
+  }
 
+  // 检查是否已经 format 过
+  if (checkExt2(args[1]) == FAILURE) {
+    printf("Please format the disk first!\n");
+    return 1;
+  }
   ext2Mount(&shell_entry.file_system, &shell_entry.current_user, args[1]);
 
   is_mounted = 1;
-  printf("Successfully mount the disk \"%s\"\n", args[1]);
+  shell_help(NULL);
   return 1;
 }
 
@@ -81,6 +99,7 @@ int shell_umount(char** args) {
   is_mounted = 0;
   stack_top = 0;
   path_stack[stack_top] = "/";
+  printf("Successfully umount from the virtual file system\n");
   return 1;
 }
 
@@ -232,6 +251,42 @@ int shell_pwd(char** args) {
   return 1;
 }
 
+int shell_help(char** args) {
+  if (is_mounted == 0) {
+    printf("This is a program simulate how ext2 file system works\n");
+    printf(
+        "You can use almost all the command as usual if you are not mount on "
+        "the disk\n");
+    printf("There are some built in command you can use:\n");
+    printf("    mkdsk <path>\n");
+    printf("    format <path>\n");
+    printf("    mount <path>\n");
+    printf("    help    show this information again\n");
+    printf("    exit    quit this program\n");
+  } else {
+    printf("You have already mounted on ext2 file system!\n");
+    printf("Following commands you can use:\n");
+    printf("    mkdir <name>\n");
+    printf("    touch <name>\n");
+    printf("    write <name>\n");
+    printf("    cat <name>\n");
+    printf("    pwd\n");
+    printf("    ls\n");
+    printf("    cd <path>\n");
+    printf("    rm <name>\n");
+    printf("    rmdir <name>\n");
+    printf("    umount  unmount the file system\n");
+    printf("    help    show this information again\n");
+    printf("    exit    quit this program\n");
+  }
+  return 1;
+}
+
+int shell_clear(char** args) {
+  shellLaunch(args);
+  return 1;
+}
+
 int shell_exit(char** args) {
   printf("Bye!\n");
   exit(0);
@@ -348,7 +403,7 @@ int shellLoop() {
 }
 
 void shellStart() {
-  printf("Hello! Welcome to Ext2 like file system!\n");
+  printf("Hello! Welcome to this toy EXT2 FILE SYSTEM\n");
   stack_top++;
   path_stack[stack_top] = "/";
   shellLoop();

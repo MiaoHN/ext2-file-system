@@ -1,6 +1,18 @@
 #include "ext2.h"
 
-int ext2Format(Disk *disk) {
+int checkExt2(char* path) {
+  Disk disk;
+  Ext2SuperBlock super_block;
+  loadDisk(&disk, path);
+  getSuperBlock(&disk, &super_block);
+  if (super_block.magic == LINUX) {
+    return SUCCESS;
+  }else {
+    return FAILURE;
+  }
+}
+
+int ext2Format(Disk* disk) {
   assert(disk != NULL);
   Ext2SuperBlock super_block;
   Ext2GroupDescTable gdt;
@@ -16,10 +28,21 @@ int ext2Format(Disk *disk) {
 
   initRootDir(disk);
 
+  printf("Successfully format the disk \"%s\" to Ext2\n", disk->path);
+  printf("\nDisk Info:\n");
+  printf("    Super Block Base:  %d\n", SUPER_BLOCK_BASE);
+  printf("    GDT Block Base:    %d\n", GDT_BLOCK_BASE);
+  printf("    Inode Bitmap Base: %d\n", INODE_BITMAP_BASE);
+  printf("    Block Bitmap Base: %d\n", BLOCK_BITMAP_BASE);
+  printf("    Inode Table Base:  %d\n", INODE_TABLE_BASE);
+  printf("    Data Block Base:   %d\n", DATA_BLOCK_BASE);
+  printf("    Free Blocks:       %d\n", super_block.free_blocks_count);
+  printf("    Free Inodes:       %d\n", super_block.free_inodes_count);
+
   return SUCCESS;
 }
 
-int initSuperBlock(Ext2SuperBlock *super_block) {
+int initSuperBlock(Ext2SuperBlock* super_block) {
   super_block->block_group = 0;
   super_block->blocks_count = NUMBER_OF_BLOCKS;
   super_block->blocks_per_group = NUMBER_OF_BLOCKS;
@@ -35,7 +58,7 @@ int initSuperBlock(Ext2SuperBlock *super_block) {
   return SUCCESS;
 }
 
-int initGdt(Ext2GroupDescTable *gdt, Ext2SuperBlock *super_block) {
+int initGdt(Ext2GroupDescTable* gdt, Ext2SuperBlock* super_block) {
   Ext2GroupDesc gd;
   memset(gdt, 0, sizeof(Ext2GroupDescTable));
   memset(&gd, 0, GD_SIZE);
@@ -49,7 +72,7 @@ int initGdt(Ext2GroupDescTable *gdt, Ext2SuperBlock *super_block) {
   return SUCCESS;
 }
 
-int initInodeBitmap(Disk *disk) {
+int initInodeBitmap(Disk* disk) {
   BYTE bitmap[BLOCK_SIZE];
   memset(bitmap, 0, BLOCK_SIZE);
 
@@ -58,7 +81,7 @@ int initInodeBitmap(Disk *disk) {
   return SUCCESS;
 }
 
-int initBlockBitmap(Disk *disk) {
+int initBlockBitmap(Disk* disk) {
   BYTE bitmap[BLOCK_SIZE];
   memset(bitmap, 0, BLOCK_SIZE);
 
@@ -71,7 +94,7 @@ int initBlockBitmap(Disk *disk) {
   return SUCCESS;
 }
 
-int initRootDir(Disk *disk) {
+int initRootDir(Disk* disk) {
   BYTE block[BLOCK_SIZE];
   memset(block, 0, BLOCK_SIZE);
 
@@ -127,7 +150,7 @@ int initRootDir(Disk *disk) {
   return SUCCESS;
 }
 
-int writeSuperBlock(Disk *disk, Ext2SuperBlock *super_block) {
+int writeSuperBlock(Disk* disk, Ext2SuperBlock* super_block) {
   unsigned int block_idx = SUPER_BLOCK_BASE;
   BYTE block[BLOCK_SIZE];
   memset(block, 0, BLOCK_SIZE);
@@ -137,7 +160,7 @@ int writeSuperBlock(Disk *disk, Ext2SuperBlock *super_block) {
   return SUCCESS;
 }
 
-int getSuperBlock(Disk *disk, Ext2SuperBlock *super_block) {
+int getSuperBlock(Disk* disk, Ext2SuperBlock* super_block) {
   BYTE block[BLOCK_SIZE];
   memset(block, 0, BLOCK_SIZE);
   memset(super_block, 0, sizeof(Ext2SuperBlock));
@@ -146,7 +169,7 @@ int getSuperBlock(Disk *disk, Ext2SuperBlock *super_block) {
   return SUCCESS;
 }
 
-int writeGdt(Disk *disk, Ext2GroupDescTable *gdt) {
+int writeGdt(Disk* disk, Ext2GroupDescTable* gdt) {
   unsigned int block_idx = GDT_BLOCK_BASE;
   BYTE block[BLOCK_SIZE];
   memset(block, 0, BLOCK_SIZE);
@@ -156,7 +179,7 @@ int writeGdt(Disk *disk, Ext2GroupDescTable *gdt) {
   return SUCCESS;
 }
 
-int getGdt(Disk *disk, Ext2GroupDescTable *gdt) {
+int getGdt(Disk* disk, Ext2GroupDescTable* gdt) {
   BYTE block[BLOCK_SIZE];
   memset(block, 0, BLOCK_SIZE);
   memset(gdt, 0, sizeof(Ext2GroupDescTable));
@@ -165,9 +188,11 @@ int getGdt(Disk *disk, Ext2GroupDescTable *gdt) {
   return SUCCESS;
 }
 
-void getRootInode(Disk *disk, Ext2Inode *inode) { getInode(disk, 0, inode); }
+void getRootInode(Disk* disk, Ext2Inode* inode) {
+  getInode(disk, 0, inode);
+}
 
-unsigned int getInodeIndex(Disk *disk, Ext2Inode *inode) {
+unsigned int getInodeIndex(Disk* disk, Ext2Inode* inode) {
   Ext2DirEntry entry;
   BYTE block[BLOCK_SIZE];
   unsigned int items = inode->size / DIR_SIZE;
@@ -182,7 +207,7 @@ unsigned int getInodeIndex(Disk *disk, Ext2Inode *inode) {
   return 0;
 }
 
-int writeInode(Disk *disk, Ext2Inode *inode, Ext2Location *location) {
+int writeInode(Disk* disk, Ext2Inode* inode, Ext2Location* location) {
   BYTE block[BLOCK_SIZE];
   readBlock(disk, location->block_idx, block);
   memcpy(block + location->offset, inode, INODE_SIZE);
@@ -191,7 +216,7 @@ int writeInode(Disk *disk, Ext2Inode *inode, Ext2Location *location) {
   return SUCCESS;
 }
 
-int getInode(Disk *disk, unsigned int index, Ext2Inode *inode) {
+int getInode(Disk* disk, unsigned int index, Ext2Inode* inode) {
   BYTE block[BLOCK_SIZE];
   memset(block, 0, BLOCK_SIZE);
   memset(inode, 0, INODE_SIZE);
@@ -204,7 +229,7 @@ int getInode(Disk *disk, unsigned int index, Ext2Inode *inode) {
   return SUCCESS;
 }
 
-Ext2Location getFreeInode(Disk *disk) {
+Ext2Location getFreeInode(Disk* disk) {
   Ext2Location location;
   Ext2SuperBlock super_block;
   Ext2GroupDescTable gdt;
@@ -240,7 +265,7 @@ Ext2Location getFreeInode(Disk *disk) {
   return location;
 }
 
-Ext2Location getFreeBlock(Disk *disk) {
+Ext2Location getFreeBlock(Disk* disk) {
   Ext2Location location;
   Ext2SuperBlock super_block;
   Ext2GroupDescTable gdt;
@@ -276,7 +301,7 @@ Ext2Location getFreeBlock(Disk *disk) {
   return location;
 }
 
-int freeBlock(Disk *disk, int index) {
+int freeBlock(Disk* disk, int index) {
   // 删除 block 并更新 superblock 和 group desc
   Ext2SuperBlock super_block;
   Ext2GroupDescTable gdt;
@@ -290,7 +315,7 @@ int freeBlock(Disk *disk, int index) {
   return SUCCESS;
 }
 
-int freeInode(Disk *disk, int index) {
+int freeInode(Disk* disk, int index) {
   // 删除 inode 并更新 superblock 和 group desc
   Ext2SuperBlock super_block;
   Ext2GroupDescTable gdt;
@@ -304,9 +329,10 @@ int freeInode(Disk *disk, int index) {
   return SUCCESS;
 }
 
-Ext2Location getDirEntryLocation(Disk *disk, unsigned int index,
-                                 Ext2Inode *parent) {
-  UINT32 *block = parent->block;
+Ext2Location getDirEntryLocation(Disk* disk,
+                                 unsigned int index,
+                                 Ext2Inode* parent) {
+  UINT32* block = parent->block;
   Ext2Location location;
   BYTE tmp_block[BLOCK_SIZE];
   unsigned int num;
@@ -344,8 +370,10 @@ Ext2Location getDirEntryLocation(Disk *disk, unsigned int index,
   }
 }
 
-int getDirEntry(Disk *disk, unsigned int index, Ext2Inode *parent,
-                Ext2DirEntry *entry) {
+int getDirEntry(Disk* disk,
+                unsigned int index,
+                Ext2Inode* parent,
+                Ext2DirEntry* entry) {
   assert(entry != NULL);
   BYTE block[BLOCK_SIZE];
   Ext2Location dir_location = getDirEntryLocation(disk, index, parent);
@@ -354,8 +382,10 @@ int getDirEntry(Disk *disk, unsigned int index, Ext2Inode *parent,
   return SUCCESS;
 }
 
-int writeDirEntry(Disk *disk, unsigned int index, Ext2Inode *parent,
-                  Ext2DirEntry *entry) {
+int writeDirEntry(Disk* disk,
+                  unsigned int index,
+                  Ext2Inode* parent,
+                  Ext2DirEntry* entry) {
   assert(entry != NULL);
   BYTE block[BLOCK_SIZE];
   Ext2Location dir_location = getDirEntryLocation(disk, index, parent);
@@ -365,20 +395,20 @@ int writeDirEntry(Disk *disk, unsigned int index, Ext2Inode *parent,
   return SUCCESS;
 }
 
-int getCurrentEntry(Disk *disk, Ext2Inode *inode, Ext2DirEntry *entry) {
+int getCurrentEntry(Disk* disk, Ext2Inode* inode, Ext2DirEntry* entry) {
   return getDirEntry(disk, 1, inode, entry);
 }
-int getParentEntry(Disk *disk, Ext2Inode *inode, Ext2DirEntry *entry) {
+int getParentEntry(Disk* disk, Ext2Inode* inode, Ext2DirEntry* entry) {
   return getDirEntry(disk, 0, inode, entry);
 }
-int writeCurrentEntry(Disk *disk, Ext2Inode *inode, Ext2DirEntry *entry) {
+int writeCurrentEntry(Disk* disk, Ext2Inode* inode, Ext2DirEntry* entry) {
   return writeDirEntry(disk, 1, inode, entry);
 }
-int writeParentEntry(Disk *disk, Ext2Inode *inode, Ext2DirEntry *entry) {
+int writeParentEntry(Disk* disk, Ext2Inode* inode, Ext2DirEntry* entry) {
   return writeDirEntry(disk, 0, inode, entry);
 }
 
-int writeFile(Disk *disk, Ext2Inode *inode) {
+int writeFile(Disk* disk, Ext2Inode* inode) {
   printf("Please input something, type <C-d> to stop writing.\n");
   BYTE buffer[BLOCK_SIZE];
   memset(buffer, 0, BLOCK_SIZE);
@@ -391,9 +421,11 @@ int writeFile(Disk *disk, Ext2Inode *inode) {
     // TODO 扩容
     // }
     memcpy(buffer + (cursor++), &str, sizeof(char));
-    if (str == 0x0d) printf("%c", 0x0a);
+    if (str == 0x0d)
+      printf("%c", 0x0a);
     str = getCh();
-    if (str == 27) break;
+    if (str == 27)
+      break;
   }
   printf("\n");
 
@@ -407,7 +439,7 @@ int writeFile(Disk *disk, Ext2Inode *inode) {
   return SUCCESS;
 }
 
-int readFile(Disk *disk, Ext2Inode *inode) {
+int readFile(Disk* disk, Ext2Inode* inode) {
   BYTE block[BLOCK_SIZE];
   if (inode->size == 0) {
     // 文件为空
@@ -424,8 +456,9 @@ int readFile(Disk *disk, Ext2Inode *inode) {
   return SUCCESS;
 }
 
-unsigned int addDirEntry(Disk *disk, Ext2Inode *parent_inode,
-                         Ext2DirEntry *entry) {
+unsigned int addDirEntry(Disk* disk,
+                         Ext2Inode* parent_inode,
+                         Ext2DirEntry* entry) {
   BYTE block[BLOCK_SIZE];
   unsigned int total = parent_inode->size / DIR_SIZE;
   unsigned int dir_block = total / DIRS_PER_BLOCK;
@@ -504,7 +537,7 @@ unsigned int addDirEntry(Disk *disk, Ext2Inode *parent_inode,
   }
 }
 
-int ext2Ls(Ext2FileSystem *file_system, Ext2Inode *current) {
+int ext2Ls(Ext2FileSystem* file_system, Ext2Inode* current) {
   unsigned int items = current->size / DIR_SIZE;
   Ext2DirEntry dir;
   // 读取 current 对应第一块 block
@@ -527,9 +560,9 @@ int ext2Ls(Ext2FileSystem *file_system, Ext2Inode *current) {
   return SUCCESS;
 }
 
-int ext2Mount(Ext2FileSystem *file_system, Ext2Inode *current, char *path) {
+int ext2Mount(Ext2FileSystem* file_system, Ext2Inode* current, char* path) {
   if (file_system->disk == NULL) {
-    file_system->disk = (Disk *)malloc(sizeof(Disk));
+    file_system->disk = (Disk*)malloc(sizeof(Disk));
   }
   // 挂载磁盘
   loadDisk(file_system->disk, path);
@@ -538,7 +571,7 @@ int ext2Mount(Ext2FileSystem *file_system, Ext2Inode *current, char *path) {
   return SUCCESS;
 }
 
-int ext2Mkdir(Ext2FileSystem *file_system, Ext2Inode *current, char *name) {
+int ext2Mkdir(Ext2FileSystem* file_system, Ext2Inode* current, char* name) {
   // 查询是否已经存在同名文件
   Ext2DirEntry entry;
   unsigned int items = current->size / DIR_SIZE;
@@ -600,7 +633,7 @@ int ext2Mkdir(Ext2FileSystem *file_system, Ext2Inode *current, char *name) {
   return SUCCESS;
 }
 
-int ext2Touch(Ext2FileSystem *file_system, Ext2Inode *current, char *name) {
+int ext2Touch(Ext2FileSystem* file_system, Ext2Inode* current, char* name) {
   // 查询是否已经存在同名文件
   Ext2DirEntry entry;
   unsigned int items = current->size / DIR_SIZE;
@@ -652,15 +685,17 @@ int ext2Touch(Ext2FileSystem *file_system, Ext2Inode *current, char *name) {
   return SUCCESS;
 }
 
-int ext2Rmdir(Ext2FileSystem *file_system, Ext2Inode *current, char *name) {
+int ext2Rmdir(Ext2FileSystem* file_system, Ext2Inode* current, char* name) {
   return deleteDirEntry(file_system, current, name, EXT2_DIR);
 }
 
-int ext2Rm(Ext2FileSystem *file_system, Ext2Inode *current, char *name) {
+int ext2Rm(Ext2FileSystem* file_system, Ext2Inode* current, char* name) {
   return deleteDirEntry(file_system, current, name, EXT2_FILE);
 }
 
-int deleteDirEntry(Ext2FileSystem *file_system, Ext2Inode *current, char *name,
+int deleteDirEntry(Ext2FileSystem* file_system,
+                   Ext2Inode* current,
+                   char* name,
                    int type) {
   // 删除文件或文件夹，使用递归的方法：
   // 1. 如果删除的是文件，则在当前文件夹下删除该文件的 dir entry，然后删除文件的
@@ -785,7 +820,7 @@ int deleteDirEntry(Ext2FileSystem *file_system, Ext2Inode *current, char *name,
   }
 }
 
-int ext2Open(Ext2FileSystem *file_system, Ext2Inode *current, char *name) {
+int ext2Open(Ext2FileSystem* file_system, Ext2Inode* current, char* name) {
   Ext2DirEntry entry;
   BYTE block[BLOCK_SIZE];
 
@@ -813,7 +848,7 @@ int ext2Open(Ext2FileSystem *file_system, Ext2Inode *current, char *name) {
   return FAILURE;
 }
 
-int ext2Write(Ext2FileSystem *file_system, Ext2Inode *current, char *name) {
+int ext2Write(Ext2FileSystem* file_system, Ext2Inode* current, char* name) {
   // 先找到这个文件入口
   Ext2DirEntry entry;
   unsigned int items = current->size / DIR_SIZE;
@@ -848,7 +883,7 @@ int ext2Write(Ext2FileSystem *file_system, Ext2Inode *current, char *name) {
   return SUCCESS;
 }
 
-int ext2Cat(Ext2FileSystem *file_system, Ext2Inode *current, char *name) {
+int ext2Cat(Ext2FileSystem* file_system, Ext2Inode* current, char* name) {
   // 先找到这个文件入口
   Ext2DirEntry entry;
   unsigned int items = current->size / DIR_SIZE;
@@ -878,35 +913,35 @@ int ext2Cat(Ext2FileSystem *file_system, Ext2Inode *current, char *name) {
   return SUCCESS;
 }
 
-void getInodeBitmap(Disk *disk, BYTE bitmap[BLOCK_SIZE]) {
+void getInodeBitmap(Disk* disk, BYTE bitmap[BLOCK_SIZE]) {
   memset(bitmap, 0, BLOCK_SIZE);
   readBlock(disk, INODE_BITMAP_BASE, bitmap);
 }
 
-void getBlockBitmap(Disk *disk, BYTE bitmap[BLOCK_SIZE]) {
+void getBlockBitmap(Disk* disk, BYTE bitmap[BLOCK_SIZE]) {
   memset(bitmap, 0, BLOCK_SIZE);
   readBlock(disk, BLOCK_BITMAP_BASE, bitmap);
 }
 
-void setInodeBitmap(Disk *disk, unsigned int index, int value) {
+void setInodeBitmap(Disk* disk, unsigned int index, int value) {
   BYTE bitmap[BLOCK_SIZE];
   getInodeBitmap(disk, bitmap);
   setBit(bitmap, index, value);
   writeInodeBitmap(disk, bitmap);
 }
 
-void setBlockBitmap(Disk *disk, unsigned int index, int value) {
+void setBlockBitmap(Disk* disk, unsigned int index, int value) {
   BYTE bitmap[BLOCK_SIZE];
   getBlockBitmap(disk, bitmap);
   setBit(bitmap, index, value);
   writeBlockBitmap(disk, bitmap);
 }
 
-void writeInodeBitmap(Disk *disk, BYTE bitmap[BLOCK_SIZE]) {
+void writeInodeBitmap(Disk* disk, BYTE bitmap[BLOCK_SIZE]) {
   writeBlock(disk, INODE_BITMAP_BASE, bitmap);
 }
 
-void writeBlockBitmap(Disk *disk, BYTE bitmap[BLOCK_SIZE]) {
+void writeBlockBitmap(Disk* disk, BYTE bitmap[BLOCK_SIZE]) {
   writeBlock(disk, BLOCK_BITMAP_BASE, bitmap);
 }
 
@@ -922,7 +957,8 @@ int setBit(BYTE bitmap[BLOCK_SIZE], int index, int value) {
 }
 
 int getOffset(BYTE byte) {
-  if (byte == 0xff) return -1;
+  if (byte == 0xff)
+    return -1;
   int offset = 0;
   while (1) {
     if ((byte >> (7 - offset)) % 2 == 0) {
@@ -933,12 +969,12 @@ int getOffset(BYTE byte) {
   }
 }
 
-int writeBlock(Disk *disk, unsigned int block_idx, void *block) {
+int writeBlock(Disk* disk, unsigned int block_idx, void* block) {
   disk->write_disk(disk, block_idx, block);
   return SUCCESS;
 }
 
-int readBlock(Disk *disk, unsigned int block_idx, void *block) {
+int readBlock(Disk* disk, unsigned int block_idx, void* block) {
   disk->read_disk(disk, block_idx, block);
   return SUCCESS;
 }
