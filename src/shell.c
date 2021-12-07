@@ -164,7 +164,7 @@ int shell_cd(char** args) {
       fprintf(stderr, "Shell: expected argument to \"cd\"\n");
     } else {
       if (chdir(args[1]) != 0) {
-        perror("lsh");
+        perror("shell");
       }
     }
     return 1;
@@ -327,7 +327,7 @@ char** shellSplitLine(char* line) {
   char* token;
 
   if (!tokens) {
-    fprintf(stderr, "lsh: allocation error\n");
+    fprintf(stderr, "shell: allocation error\n");
     exit(EXIT_FAILURE);
   }
 
@@ -385,12 +385,12 @@ int shellLaunch(char** args) {
   if (pid == 0) {
     // Child process
     if (execvp(args[0], args) == -1) {
-      perror("lsh");
+      perror("shell");
     }
     exit(EXIT_FAILURE);
   } else if (pid < 0) {
     // Error forking
-    perror("lsh");
+    perror("shell");
   } else {
     // Parent process
     do {
@@ -422,6 +422,7 @@ int shellLoop() {
 
 void shellStart() {
   printf("Hello! Welcome to this toy EXT2 FILE SYSTEM\n");
+  printf("Print \"help\" to see more information");
   stack_top++;
   path_stack[stack_top] = "/";
   shellLoop();

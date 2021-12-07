@@ -436,7 +436,7 @@ int writeFile(Disk* disk, Ext2Inode* inode) {
   inode->blocks++;
   inode->block[0] = location.block_idx;
   inode->size = cursor;
-  // TODO 添加修改时间
+  inode->mtime = time(NULL);
   return SUCCESS;
 }
 
