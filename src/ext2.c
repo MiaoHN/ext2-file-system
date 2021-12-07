@@ -466,10 +466,7 @@ unsigned int addDirEntry(Disk* disk,
   unsigned int dir_offset = total % DIRS_PER_BLOCK;
   if (dir_block < 6) {
     // 直接索引
-    if (dir_offset == 0 && dir_block != 0) {
-      // 刚好在上一个 block 中
-      dir_block -= 1;
-    } else if (parent_inode->blocks < dir_block + 1) {
+    if (parent_inode->blocks < dir_block + 1) {
       // 如果没有创建新的 block
       Ext2Location block_location = getFreeBlock(disk);
       parent_inode->block[dir_block] = block_location.block_idx;
@@ -482,16 +479,8 @@ unsigned int addDirEntry(Disk* disk,
     return SUCCESS;
   } else {
     // 间接索引
-    if (dir_block == 6 && dir_offset == 0) {
-      // 刚好在上一个 block 中，直接写入
-      readBlock(disk, parent_inode->block[5], block);
-      memcpy(block + (DIRS_PER_BLOCK - 1) * DIR_SIZE, &entry, DIR_SIZE);
-      writeBlock(disk, parent_inode->block[5], block);
-      parent_inode->size += DIR_SIZE;
-      return SUCCESS;
-    }
     // 如果没有创建新的 block
-    if (parent_inode->blocks < total + 1) {
+    if (parent_inode->blocks < 7) {
       Ext2Location block_location = getFreeBlock(disk);
       parent_inode->block[6] = block_location.block_idx;
       parent_inode->blocks++;
@@ -501,20 +490,23 @@ unsigned int addDirEntry(Disk* disk,
     if (dir_block < dir_records_per_block) {
       // 一级索引
       readBlock(disk, parent_inode->block[6], block);
-      memcpy(block + dir_offset * DIR_SIZE, &entry, DIR_SIZE);
-      writeBlock(disk, parent_inode->block[dir_block], block);
+      if (parent_inode->blocks < dir_block + 6 + 2) {
+        // 为索引块添加一个 block
+        Ext2Location block_location = getFreeBlock(disk);
+        memcpy(block + dir_block * sizeof(int), &block_location.block_idx,
+               sizeof(int));
+        writeBlock(disk, parent_inode->block[6], block);
+        parent_inode->blocks++;
+      }
+      unsigned int block_idx;
+      memcpy(&block_idx, block + dir_block * sizeof(int), sizeof(int));
+      BYTE block1[BLOCK_SIZE];
+      readBlock(disk, block_idx, block1);
+      memcpy(block1 + dir_offset * DIR_SIZE, entry, DIR_SIZE);
+      writeBlock(disk, block_idx, block1);
       parent_inode->size += DIR_SIZE;
       return SUCCESS;
     } else {
-      if (dir_block == dir_records_per_block && dir_offset == 0) {
-        // 刚好在一级索引末尾
-        readBlock(disk, parent_inode->block[6], block);
-        memcpy(block + (dir_records_per_block - 1) * DIR_SIZE, &entry,
-               DIR_SIZE);
-        writeBlock(disk, parent_inode->block[dir_block], block);
-        parent_inode->size += DIR_SIZE;
-        return SUCCESS;
-      }
       // 没有初始化二级索引则初始化 block
       if (parent_inode->blocks < total + 1) {
         Ext2Location block_location = getFreeBlock(disk);
@@ -544,7 +536,7 @@ int ext2Ls(Ext2FileSystem* file_system, Ext2Inode* current) {
   // 读取 current 对应第一块 block
   printf(
       "\x1B[4mType\x1B[0m\t\x1B[4mPermission\x1B[0m\t\x1B[4mSize\x1B[0m\t\x1B["
-      "4mModify Time\x1B[0m\t\t\t\x1B[4mName\x1B[0m\n");
+      "4mModify Time\x1B[0m\t\t\t\x1B[4mName\x1B[0m\t\x1B[4mInode\x1B[0m\n");
   BYTE block[BLOCK_SIZE];
   for (unsigned int i = 0; i < items; i++) {
     Ext2Location location = getDirEntryLocation(file_system->disk, i, current);
@@ -557,7 +549,9 @@ int ext2Ls(Ext2FileSystem* file_system, Ext2Inode* current) {
     char str_size[16];
     char str_time[128];
     char str_name[16];
+    char str_inode[16];
     strcpy(str_name, dir.name);
+    sprintf(str_inode, "%d", dir.inode);
     if (dir.file_type == EXT2_DIR) {
       strcpy(str_type, "Dir");
       strcpy(str_permission, "-\t");
@@ -579,8 +573,8 @@ int ext2Ls(Ext2FileSystem* file_system, Ext2Inode* current) {
         str_time[j] = '\t';
       }
     }
-    printf("%s\t%s\t%s\t%s%s\n", str_type, str_permission, str_size, str_time,
-           str_name);
+    printf("%s\t%s\t%s\t%s%s\t%s\n", str_type, str_permission, str_size,
+           str_time, str_name, str_inode);
   }
   return SUCCESS;
 }
@@ -597,6 +591,12 @@ int ext2Mount(Ext2FileSystem* file_system, Ext2Inode* current, char* path) {
 }
 
 int ext2Mkdir(Ext2FileSystem* file_system, Ext2Inode* current, char* name) {
+  if (strlen(name) >= DIR_NAME_LEN) {
+    printf(
+        "Warring! Too large name length, appropriate name length is below %d\n",
+        DIR_NAME_LEN);
+    return FAILURE;
+  }
   // 查询是否已经存在同名文件
   Ext2DirEntry entry;
   unsigned int items = current->size / DIR_SIZE;
@@ -659,6 +659,12 @@ int ext2Mkdir(Ext2FileSystem* file_system, Ext2Inode* current, char* name) {
 }
 
 int ext2Touch(Ext2FileSystem* file_system, Ext2Inode* current, char* name) {
+  if (strlen(name) >= DIR_NAME_LEN) {
+    printf(
+        "Warring! Too large name length, appropriate name length is below %d\n",
+        DIR_NAME_LEN);
+    return FAILURE;
+  }
   // 查询是否已经存在同名文件
   Ext2DirEntry entry;
   unsigned int items = current->size / DIR_SIZE;
@@ -729,9 +735,9 @@ int ext2Chmod(Ext2FileSystem* file_system, Ext2Inode* current, char* name) {
   Ext2Inode inode;
   getInode(file_system->disk, entry.inode, &inode);
   if (inode.mode == WRITABLE) {
-    inode.mode = (CANNOT_WRITE << 1) ^ inode.mode;
+    inode.mode = 0;
   } else {
-    inode.mode = (WRITABLE << 1) ^ inode.mode;
+    inode.mode = 2;
   }
   Ext2Location location;
   location.block_idx = INODE_TABLE_BASE + entry.inode / INODES_PER_BLOCK;
@@ -922,7 +928,9 @@ int ext2Write(Ext2FileSystem* file_system, Ext2Inode* current, char* name) {
 
   if (strcmp(entry.name, name)) {
     // 文件不存在
-    ext2Touch(file_system, current, name);
+    if (ext2Touch(file_system, current, name) == FAILURE) {
+      return FAILURE;
+    }
     // 找到这个文件入口
     unsigned int items = current->size / DIR_SIZE;
     for (unsigned int i = 2; i < items; i++) {

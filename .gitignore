@@ -3,6 +3,8 @@
 build/
 bin/
 .cache/
+disk/
+doc/
 
 
 # Files

@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <time.h>
 
+#include "string.h"
 #include "common.h"
 #include "disk.h"
 
@@ -251,5 +252,6 @@ int getOffset(BYTE byte);
 
 int writeBlock(Disk* disk, unsigned int block_idx, void* block);
 int readBlock(Disk* disk, unsigned int block_idx, void* block);
+
 char getCh();
 #endif  // __EXT2_H__

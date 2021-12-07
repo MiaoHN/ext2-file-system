@@ -19,7 +19,11 @@ void exitDisplay() {
 }
 
 int getCurrentPath(char* path) {
-  strcpy(path, path_stack[stack_top]);
+  if (!is_mounted) {
+    strcpy(path, "UNMOUNTED");
+  } else {
+    strcpy(path, path_stack[stack_top]);
+  }
   return 1;
 }
 
@@ -422,7 +426,7 @@ int shellLoop() {
 
 void shellStart() {
   printf("Hello! Welcome to this toy EXT2 FILE SYSTEM\n");
-  printf("Print \"help\" to see more information");
+  printf("Print \"help\" to see more information\n");
   stack_top++;
   path_stack[stack_top] = "/";
   shellLoop();
