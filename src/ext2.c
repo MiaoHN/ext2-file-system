@@ -1006,6 +1006,19 @@ void writeBlockBitmap(Disk* disk, BYTE bitmap[BLOCK_SIZE]) {
   writeBlock(disk, BLOCK_BITMAP_BASE, bitmap);
 }
 
+int printDiskInfo(Disk* disk) {
+  Ext2SuperBlock super_block;
+  getSuperBlock(disk, &super_block);
+  printf("Disk Info:\n");
+  printf("    Inode size: %d bytes\n", INODE_SIZE);
+  printf("    Block size: %d bytes\n", BLOCK_SIZE);
+  printf("    Inodes count: %d\n", super_block.inodes_count);
+  printf("    Blocks count: %d\n", super_block.blocks_count);
+  printf("    Free Inodes: %d\n", super_block.free_inodes_count);
+  printf("    Free Blocks: %d\n", super_block.free_blocks_count);
+  return SUCCESS;
+}
+
 int setBit(BYTE bitmap[BLOCK_SIZE], int index, int value) {
   int byte = index / 8;
   int offset = index % 8;

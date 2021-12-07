@@ -243,6 +243,8 @@ void setInodeBitmap(Disk* disk, unsigned int index, int value);
 void writeInodeBitmap(Disk* disk, BYTE bitmap[BLOCK_SIZE]);
 void writeBlockBitmap(Disk* disk, BYTE bitmap[BLOCK_SIZE]);
 
+int printDiskInfo(Disk*disk);
+
 // 位操作
 
 // 将位图 block 位于 index 处的值设为 value

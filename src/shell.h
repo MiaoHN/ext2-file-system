@@ -39,6 +39,7 @@ int shell_help(char** args);
 int shell_clear(char** args);
 int shell_touch(char** args);
 int shell_chmod(char** args);
+int shell_info(char** args);
 int shell_cd(char** args);
 int shell_pwd(char** args);
 int shell_rm(char** args);

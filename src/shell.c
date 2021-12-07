@@ -6,7 +6,8 @@ static Command commands[] = {
     {"cd", &shell_cd},       {"exit", &shell_exit},   {"umount", &shell_umount},
     {"rmdir", &shell_rmdir}, {"rm", &shell_rm},       {"write", &shell_write},
     {"cat", &shell_cat},     {"pwd", &shell_pwd},     {"help", &shell_help},
-    {"clear", &shell_clear}, {"chmod", &shell_chmod}};
+    {"clear", &shell_clear}, {"chmod", &shell_chmod}, {"info", &shell_info},
+};
 
 char* path_stack[256];
 static int stack_top = -1;
@@ -159,6 +160,16 @@ int shell_chmod(char** args) {
   }
 
   ext2Chmod(&shell_entry.file_system, &shell_entry.current_user, args[1]);
+  return 1;
+}
+
+int shell_info(char** args) {
+  if (is_mounted == 0) {
+    shellLaunch(args);
+    return 1;
+  }
+
+  printDiskInfo(shell_entry.file_system.disk);
   return 1;
 }
 
