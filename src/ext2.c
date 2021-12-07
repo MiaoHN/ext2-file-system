@@ -7,7 +7,7 @@ int checkExt2(char* path) {
   getSuperBlock(&disk, &super_block);
   if (super_block.magic == LINUX) {
     return SUCCESS;
-  }else {
+  } else {
     return FAILURE;
   }
 }
@@ -409,7 +409,7 @@ int writeParentEntry(Disk* disk, Ext2Inode* inode, Ext2DirEntry* entry) {
 }
 
 int writeFile(Disk* disk, Ext2Inode* inode) {
-  printf("Please input something, type <C-d> to stop writing.\n");
+  printf("Please input something, type <Esc> to stop writing.\n");
   BYTE buffer[BLOCK_SIZE];
   memset(buffer, 0, BLOCK_SIZE);
   int cursor = 0;
@@ -867,8 +867,15 @@ int ext2Write(Ext2FileSystem* file_system, Ext2Inode* current, char* name) {
 
   if (strcmp(entry.name, name)) {
     // 文件不存在
-    printf("The file named \"%s\" isn't exist\n", name);
-    return FAILURE;
+    ext2Touch(file_system, current, name);
+    // 找到这个文件入口
+    unsigned int items = current->size / DIR_SIZE;
+    for (unsigned int i = 2; i < items; i++) {
+      getDirEntry(file_system->disk, i, current, &entry);
+      if (!strcmp(entry.name, name)) {
+        break;
+      }
+    }
   }
 
   // 找到 entry 后
