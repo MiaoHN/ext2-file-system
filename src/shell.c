@@ -138,7 +138,6 @@ int shell_mkdir(char** args) {
   }
 
   ext2Mkdir(&shell_entry.file_system, &shell_entry.current_user, args[1]);
-  printf("Successfully make directory named \"%s\"\n", args[1]);
   return 1;
 }
 
@@ -154,7 +153,6 @@ int shell_touch(char** args) {
   }
 
   ext2Touch(&shell_entry.file_system, &shell_entry.current_user, args[1]);
-  printf("Successfully make file named \"%s\"\n", args[1]);
   return 1;
 }
 
@@ -164,12 +162,27 @@ int shell_chmod(char** args) {
     return 1;
   }
 
-  if (args[1] == NULL) {
-    printf("usage: chmod <file-name>\n");
+  if (args[2] == NULL) {
+    printf("usage: chmod <mode> <file-name>\n");
+    printf(" <mode>:\n");
+    printf("       0 : Toggle Readable\n");
+    printf("       1 : Toggle Writable\n");
+    return 1;
+  }
+  int mode;
+  if (!strcmp(args[1], "0")) {
+    mode = 0;
+  } else if (!strcmp(args[1], "1")) {
+    mode = 1;
+  } else {
+    printf("usage: chmod <mode> <file-name>\n");
+    printf(" <mode>:\n");
+    printf("       0 : Toggle Readable\n");
+    printf("       1 : Toggle Writable\n");
     return 1;
   }
 
-  ext2Chmod(&shell_entry.file_system, &shell_entry.current_user, args[1]);
+  ext2Chmod(&shell_entry.file_system, &shell_entry.current_user, mode, args[1]);
   return 1;
 }
 

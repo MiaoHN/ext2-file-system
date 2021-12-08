@@ -49,8 +49,8 @@ int initSuperBlock(Ext2SuperBlock* super_block) {
   super_block->inode_size = INODE_SIZE;
   super_block->first_data_block = SUPER_BLOCK_BASE;
   super_block->first_data_block_each_group = DATA_BLOCK_BASE;
-  super_block->free_blocks_count = NUMBER_OF_BLOCKS - DATA_BLOCK_BASE;
-  super_block->free_inodes_count = NUMBER_OF_INODES;
+  super_block->free_blocks_count = NUMBER_OF_BLOCKS - DATA_BLOCK_BASE - 1;
+  super_block->free_inodes_count = NUMBER_OF_INODES - 1;
   super_block->magic = LINUX;
   super_block->first_ino = 11;
   super_block->errors = 0;
@@ -535,7 +535,8 @@ int ext2Ls(Ext2FileSystem* file_system, Ext2Inode* current) {
   Ext2DirEntry dir;
   // 读取 current 对应第一块 block
   printf(
-      "\x1B[4mType\x1B[0m\t\x1B[4mPermission\x1B[0m\t\x1B[4mSize\x1B[0m\t\x1B["
+      "\x1B[4mType\x1B[0m\t\x1B[4mPermission\x1B[0m\t\t\x1B[4mSize\x1B["
+      "0m\t\x1B["
       "4mModify Time\x1B[0m\t\t\t\x1B[4mName\x1B[0m\t\n");
   BYTE block[BLOCK_SIZE];
   for (unsigned int i = 0; i < items; i++) {
@@ -545,22 +546,28 @@ int ext2Ls(Ext2FileSystem* file_system, Ext2Inode* current) {
     Ext2Inode temp;
     getInode(file_system->disk, dir.inode, &temp);
     char str_type[16];
-    char str_permission[16];
+    char str_permission[64];
     char str_size[16];
     char str_time[128];
     char str_name[16];
     strcpy(str_name, dir.name);
+    strcpy(str_permission, "");
     if (dir.file_type == EXT2_DIR) {
       strcpy(str_type, "Dir");
-      strcpy(str_permission, "-\t");
+      strcat(str_permission, "-\t\t");
       strcpy(str_size, "-");
     } else if (dir.file_type == EXT2_FILE) {
       strcpy(str_type, "File");
-      int permission = (temp.mode >> 1);
-      if (permission == WRITABLE) {
-        strcpy(str_permission, "Writable");
+      int permission = temp.mode;
+      if (permission & WRITABLE) {
+        strcat(str_permission, "Writable   ");
       } else {
-        strcpy(str_permission, "Can't Write");
+        strcat(str_permission, "Can't Write");
+      }
+      if (permission & READABLE) {
+        strcat(str_permission, "Readable  ");
+      } else {
+        strcat(str_permission, "Can't Read");
       }
       sprintf(str_size, "%d", temp.size);
     }
@@ -750,7 +757,7 @@ int ext2Touch(Ext2FileSystem* file_system, Ext2Inode* current, char* name) {
   // 写入新目录的 inode
   Ext2Inode new_inode;
   memset(&new_inode, 0, INODE_SIZE);
-  new_inode.mode = EXT2_DIR + (WRITABLE << 1);
+  new_inode.mode = EXT2_FILE | WRITABLE | READABLE;
   new_inode.blocks = 0;
   new_inode.size = 0;
   writeInode(file_system->disk, &new_inode, &inode_location);
@@ -766,7 +773,10 @@ int ext2Touch(Ext2FileSystem* file_system, Ext2Inode* current, char* name) {
   return SUCCESS;
 }
 
-int ext2Chmod(Ext2FileSystem* file_system, Ext2Inode* current, char* name) {
+int ext2Chmod(Ext2FileSystem* file_system,
+              Ext2Inode* current,
+              int mode,
+              char* name) {
   // 先找到这个文件入口
   Ext2DirEntry entry;
   unsigned int items = current->size / DIR_SIZE;
@@ -784,10 +794,21 @@ int ext2Chmod(Ext2FileSystem* file_system, Ext2Inode* current, char* name) {
   }
   Ext2Inode inode;
   getInode(file_system->disk, entry.inode, &inode);
-  if (inode.mode == WRITABLE) {
-    inode.mode = 0;
-  } else {
-    inode.mode = 2;
+
+  if (mode == 0) {
+    // 写权限
+    if ((inode.mode & WRITABLE)) {
+      inode.mode &= ~(WRITABLE);
+    } else {
+      inode.mode |= WRITABLE;
+    }
+  } else if (mode == 1) {
+    // 读权限
+    if ((inode.mode & READABLE)) {
+      inode.mode &= ~(READABLE);
+    } else {
+      inode.mode |= READABLE;
+    }
   }
   Ext2Location location;
   location.block_idx = INODE_TABLE_BASE + entry.inode / INODES_PER_BLOCK;
@@ -989,8 +1010,10 @@ int ext2Write(Ext2FileSystem* file_system, Ext2Inode* current, char* name) {
   // 找到 entry 后
   Ext2Inode inode;
   getInode(file_system->disk, entry.inode, &inode);
-  if ((inode.mode >> 1) == CANNOT_WRITE) {
-    printf("Permission denied. Please use \"chmod\" to write this file.\n");
+  if (!(inode.mode & WRITABLE)) {
+    printf(
+        "Permission denied. You can't write this file. Please use \"chmod\" to "
+        "write this file.\n");
     return FAILURE;
   }
   writeFile(file_system->disk, &inode);
@@ -1028,6 +1051,12 @@ int ext2Cat(Ext2FileSystem* file_system, Ext2Inode* current, char* name) {
   // 找到 entry 后
   Ext2Inode inode;
   getInode(file_system->disk, entry.inode, &inode);
+  if (!(inode.mode & READABLE)) {
+    printf(
+        "Permission denied. You can't read this file. Please use \"chmod\" to "
+        "write this file.\n");
+    return FAILURE;
+  }
   readFile(file_system->disk, &inode);
   return SUCCESS;
 }

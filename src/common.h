@@ -6,11 +6,11 @@
 
 #include <assert.h>
 
-#define WRITABLE 1
-#define CANNOT_WRITE 0
+#define WRITABLE 0x0002
+#define READABLE 0x0004
 
-#define EXT2_FILE 0
-#define EXT2_DIR 1
+#define EXT2_FILE 0x0000
+#define EXT2_DIR 0x0001
 
 #define EXT2_N_BLOCKS 8
 

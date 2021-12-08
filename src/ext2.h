@@ -226,7 +226,7 @@ int ext2Tree(Ext2FileSystem* file_system, int inode_idx, int depth, Ext2Inode*cu
 int ext2Mount(Ext2FileSystem* file_system, Ext2Inode* current, char* path);
 int ext2Mkdir(Ext2FileSystem* file_system, Ext2Inode* current, char* name);
 int ext2Touch(Ext2FileSystem* file_system, Ext2Inode* current, char* name);
-int ext2Chmod(Ext2FileSystem* file_system,Ext2Inode*current, char*name);
+int ext2Chmod(Ext2FileSystem* file_system,Ext2Inode*current, int mode, char*name);
 int ext2Rmdir(Ext2FileSystem* file_system, Ext2Inode* current, char* name);
 int ext2Rm(Ext2FileSystem* file_system, Ext2Inode* current, char* name);
 int deleteDirEntry(Ext2FileSystem* file_system, Ext2Inode* current, char* name,
