@@ -7,6 +7,7 @@ static Command commands[] = {
     {"rmdir", &shell_rmdir}, {"rm", &shell_rm},       {"write", &shell_write},
     {"cat", &shell_cat},     {"pwd", &shell_pwd},     {"help", &shell_help},
     {"clear", &shell_clear}, {"chmod", &shell_chmod}, {"info", &shell_info},
+    {"tree", &shell_tree},
 };
 
 char* path_stack[256];
@@ -116,6 +117,15 @@ int shell_ls(char** args) {
   return 1;
 }
 
+int shell_tree(char** args) {
+  if (is_mounted == 0) {
+    shellLaunch(args);
+    return 1;
+  }
+  ext2Tree(&shell_entry.file_system, 0, 0, &shell_entry.current_user);
+  return 1;
+}
+
 int shell_mkdir(char** args) {
   if (is_mounted == 0) {
     shellLaunch(args);
@@ -198,6 +208,10 @@ int shell_cd(char** args) {
   } else if (!strcmp(args[1], ".")) {
     // 当前目录，不处理
     return 1;
+  } else if (!strcmp(args[1], "/")) {
+    stack_top = 0;
+    path_stack[stack_top] = "/";
+    ext2Open(&shell_entry.file_system, &shell_entry.current_user, args[1]);
   }
 
   if (ext2Open(&shell_entry.file_system, &shell_entry.current_user, args[1]) ==
@@ -438,7 +452,7 @@ int shellLoop() {
 void shellStart() {
   printf("Hello! Welcome to this toy EXT2 FILE SYSTEM\n");
   printf("Print \"help\" to see more information\n");
-  stack_top++;
+  stack_top = 0;
   path_stack[stack_top] = "/";
   shellLoop();
   exitDisplay();

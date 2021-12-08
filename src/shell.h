@@ -1,6 +1,8 @@
 #ifndef __SHELL_H__
 #define __SHELL_H__
 
+// study from: https://brennan.io/2015/01/16/write-a-shell-in-c/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -34,6 +36,7 @@ int shell_format(char** args);
 int shell_mount(char** args);
 int shell_umount(char** args);
 int shell_ls(char** args);
+int shell_tree(char** args);
 int shell_mkdir(char** args);
 int shell_help(char** args);
 int shell_clear(char** args);

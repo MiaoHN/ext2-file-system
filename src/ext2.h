@@ -222,6 +222,7 @@ int readFile(Disk* disk, Ext2Inode* inode);
 
 int ext2Format(Disk* disk);
 int ext2Ls(Ext2FileSystem* file_system, Ext2Inode* current);
+int ext2Tree(Ext2FileSystem* file_system, int inode_idx, int depth, Ext2Inode*current_inode);
 int ext2Mount(Ext2FileSystem* file_system, Ext2Inode* current, char* path);
 int ext2Mkdir(Ext2FileSystem* file_system, Ext2Inode* current, char* name);
 int ext2Touch(Ext2FileSystem* file_system, Ext2Inode* current, char* name);

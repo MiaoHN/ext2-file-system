@@ -577,6 +577,58 @@ int ext2Ls(Ext2FileSystem* file_system, Ext2Inode* current) {
   return SUCCESS;
 }
 
+int ext2Tree(Ext2FileSystem* file_system,
+             int inode_idx,
+             int depth,
+             Ext2Inode* current_inode) {
+  if (depth == 0) {
+    printf("/");
+  }
+  BYTE block[BLOCK_SIZE];
+  Ext2DirEntry current_entry;
+  Ext2Location current_location =
+      getDirEntryLocation(file_system->disk, 1, current_inode);
+  readBlock(file_system->disk, current_location.block_idx, block);
+  memcpy(&current_entry, block + current_location.offset, DIR_SIZE);
+  int flag = 0;
+  if (current_entry.inode == inode_idx) {
+    flag = 1;
+  } else {
+    flag = 0;
+  }
+  if (flag == 1) {
+    printf("  <- You are here\n");
+  } else {
+    printf("\n");
+  }
+  Ext2Inode current;
+  getInode(file_system->disk, inode_idx, &current);
+  unsigned int items = current.size / DIR_SIZE;
+  Ext2DirEntry dir;
+  // 读取 current 对应第一块 block
+  for (unsigned int i = 2; i < items; i++) {
+    Ext2Location location = getDirEntryLocation(file_system->disk, i, &current);
+    readBlock(file_system->disk, location.block_idx, block);
+    memcpy(&dir, block + location.offset, DIR_SIZE);
+    Ext2Inode temp;
+    getInode(file_system->disk, dir.inode, &temp);
+    if (dir.file_type == EXT2_DIR) {
+      // 目录递归使用 tree
+      for (int i = 0; i < depth; i++) {
+        printf("  ");
+      }
+      printf("└\033[32m%s\033[0m", dir.name);
+      ext2Tree(file_system, dir.inode, depth + 1, current_inode);
+    } else {
+      for (int i = 0; i < depth; i++) {
+        printf("  ");
+      }
+      printf("└%s\n", dir.name);
+    }
+  }
+  return SUCCESS;
+}
+
 int ext2Mount(Ext2FileSystem* file_system, Ext2Inode* current, char* path) {
   if (file_system->disk == NULL) {
     file_system->disk = (Disk*)malloc(sizeof(Disk));
@@ -869,6 +921,12 @@ int deleteDirEntry(Ext2FileSystem* file_system,
 }
 
 int ext2Open(Ext2FileSystem* file_system, Ext2Inode* current, char* name) {
+  if (!strcmp(name, "/")) {
+    for (int i = 0; i < 100; i++) {
+      ext2Open(file_system, current, "..");
+    }
+    return 0;
+  }
   Ext2DirEntry entry;
   BYTE block[BLOCK_SIZE];
 
